@@ -7,6 +7,29 @@ A comprehensive toolkit for Azure Policy development, testing, and validation th
 Azure Policy Agents is designed to streamline the Azure Policy development lifecycle by providing:
 
 - **Local Development Support**: Integration with VS Code through Model Context Protocol (MCP) Server for intelligent policy authoring, compliance assessment, and all-up interaction with all your Azure resources via Resource Graph, for all your subscriptions subject to your Azure RBAC permission(s).
+
+- **[📦 Install Azure Resource Graph MCP Server](https://insiders.vscode.dev/redirect/mcp/install?name=Azure%20Resource%20Graph&config=%7B%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22@krnese/azure-resource-graph-mcp@latest%22%5D%2C%22env%22%3A%7B%22AZURE_SUBSCRIPTION_ID%22%3A%22YOUR_SUBSCRIPTION_ID%22%7D%7D)**
+
+- **Manual Installation**
+
+    If you prefer manual installation, add this configuration to your VS Code `settings.json`:
+
+    ```json
+    {
+    "mcp": {
+        "servers": {
+        "azure-rg-mcp": {
+            "command": "npx",
+            "args": ["-y", "@krnese/azure-resource-graph-mcp@latest"],
+            "env": {
+            "AZURE_SUBSCRIPTION_ID": "your-subscription-id-here"
+            }
+        }
+        }
+    }
+    }
+    ```
+
 - **Automated Testing**: GitHub workflows for continuous policy validation and testing
 - **Policy Validation**: Comprehensive testing framework for Azure Policy definitions and initiatives
 - **Development Tools**: Utilities and helpers for policy development best practices
