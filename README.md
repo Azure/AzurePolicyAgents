@@ -34,6 +34,9 @@ Azure Policy Agents is designed to streamline the Azure Policy development lifec
 - **Policy Validation**: Comprehensive testing framework for Azure Policy definitions and initiatives
 - **Development Tools**: Utilities and helpers for policy development best practices
 
+- **Getting started with Azure Policy Agents**:
+  See the [Getting Started Guide](docs/Getting-Started.md) for detailed instructions on how to set up and use Azure Policy Agents.
+
 ## ✨ Features
 
 ### 🔧 Local Development (VS Code + MCP Server)
