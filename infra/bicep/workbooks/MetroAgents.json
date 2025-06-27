@@ -1,0 +1,30 @@
+{
+    "version": "Notebook/1.0",
+    "items": [
+      {
+        "type": 1,
+        "content": {
+          "json": "## MetroAgents\n---\n\nThis workbook will give you line of sight to the [Metro Agent setup](https://github.com/Azure/MetroAgents)",
+          "style": "success"
+        },
+        "name": "text"
+      },
+      {
+        "type": 3,
+        "content": {
+          "version": "KqlItem/1.0",
+          "query": "AzureDiagnostics\n| where ResourceProvider == \"MICROSOFT.COGNITIVESERVICES\"\n| where Category == \"RequestResponse\"\n| extend properties = parse_json(properties_s)\n| extend apiVersion = tostring(properties.apiName)\n| extend modelDeploymentName = tostring(properties.modelDeploymentName)\n| extend modelName = tostring(properties.modelName)\n| extend modelVersion = tostring(properties.modelVersion)\n| extend objectId = tostring(properties.objectId)\n| project TimeGenerated, OperationName, ResultSignature, Resource, apiVersion, objectId, modelDeploymentName, modelName, modelVersion",
+          "size": 1,
+          "timeContext": {
+            "durationMs": 86400000
+          },
+          "queryType": 0,
+          "resourceType": "microsoft.operationalinsights/workspaces"
+        },
+        "name": "query"
+      }
+    ],
+    "fallbackResourceIds": [
+    ],
+    "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
+  }
