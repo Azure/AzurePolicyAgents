@@ -1,0 +1,61 @@
+{
+    "": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+    "parameters": {
+        "policyDefinition": {
+            "value": {
+                "name": "Allowed-Locations-Resources",
+                "type": "Microsoft.Authorization/policyDefinitions",
+                "apiVersion": "2021-06-01",
+                "scope": null,
+                "properties": {
+                    "displayName": "Allowed locations for workloads",
+                    "policyType": "Custom",
+                    "mode": "Indexed",
+                    "description": "This policy enables you to restrict the locations your organization can specify when deploying resources. Use to enforce your geo-compliance requirements. Excludes resource groups, Microsoft.AzureActiveDirectory/b2cDirectories, Microsoft.Resources/deployments for DINE, and resources that use the 'global' region.",
+                    "metadata": {
+                        "category": "Foobar124"
+                    },
+                    "parameters": {
+                        "listOfAllowedLocations": {
+                            "type": "Array",
+                            "defaultValue": [
+                                "eastus"
+                            ],
+                            "metadata": {
+                                "displayName": "Allowed locations",
+                                "description": "The list of locations that can be specified when deploying resources.",
+                                "strongType": "location"
+                            }
+                        }
+                    },
+                    "policyRule": {
+                        "if": {
+                            "allOf": [
+                                {
+                                    "field": "location",
+                                    "notIn": "[parameters('listOfAllowedLocations')]"
+                                },
+                                {
+                                    "field": "location",
+                                    "notEquals": "global"
+                                },
+                                {
+                                    "field": "type",
+                                    "notEquals": "Microsoft.AzureActiveDirectory/b2cDirectories"
+                                },
+                                {
+                                    "field": "type",
+                                    "notEquals": "Microsoft.Resources/deployments"
+                                }
+                            ]
+                        },
+                        "then": {
+                            "effect": "deny"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "contentVersion": "1.0.0.0"
+}
