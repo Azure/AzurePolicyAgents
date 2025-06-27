@@ -1,0 +1,34 @@
+{
+	"name": "Powershell and Azure CLI 2.0",
+	"build": {
+		"dockerfile": "Dockerfile"
+	},
+
+	// Set *default* container specific settings.json values on container create.
+	"settings": {
+		"terminal.integrated.shell.linux": "/bin/pwsh",
+		"files.eol": "\n",
+	},
+
+	// Add the IDs of extensions you want installed when the container is created.
+	// Note that some extensions may not work in Alpine Linux. See https://aka.ms/vscode-remote/linux.
+	"extensions": [
+		"github.vscode-pull-request-github",
+		"ms-azuretools.vscode-docker",
+		"ms-vscode.azure-account",
+		"ms-vscode.azurecli",
+		"ms-azuretools.vscode-bicep"
+	],
+
+	// Use 'forwardPorts' to make a list of ports inside the container available locally.
+	// "forwardPorts": [],
+
+	// Use 'postCreateCommand' to run commands after the container is created.
+	"postCreateCommand": "uname -a",
+
+	// Uncomment when using a ptrace-based debugger like C++, Go, and Rust
+	// "runArgs": [ "--cap-add=SYS_PTRACE", "--security-opt", "seccomp=unconfined" ],
+
+	// Uncomment to connect as a non-root user. See https://aka.ms/vscode-remote/containers/non-root.
+	// "remoteUser": "vscode"
+}
