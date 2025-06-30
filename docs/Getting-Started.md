@@ -85,9 +85,6 @@ Add the following **Repository Variables** (from deployment outputs):
 
 Create a pull request in the `policyDefinitions` folder to validate that the workflow runs properly:
 
-![Create pull request](media/pr_1.png)
-![Pull request workflow](media/pr_2.png)
-
 ## Creating Your First Policy Test
 
 1. **Create a policy file**: Add a JSON policy definition to the `policyDefinitions/` folder
