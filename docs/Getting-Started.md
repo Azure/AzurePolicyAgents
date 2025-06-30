@@ -8,136 +8,98 @@ The Azure Policy Agent is a GitHub Action workflow that automates the deployment
 
 Before you begin, you'll need:
 
-- An Azure subscription with Contributor permissions
-- An Azure AI Foundry project with a deployed assistant/agent
+- An Azure subscription with Owner permissions
+- Azure CLI or PowerShell installed
 - A GitHub repository set up as a template or fork of this repository
 
 ## Setup Instructions
 
-### 1. Deploy Azure AI Infrastructure
+### 1. Create Repository from Template
 
-First, deploy the required Azure AI infrastructure using the Bicep templates in the `infra/bicep` folder. This will create:
-- Azure AI Foundry project
-- AI models and agents
-- User-assigned managed identity for GitHub authentication
-
-### 2. Create Repository from Template
-
-1. Create new repository from this template:
+First, create a new repository from this template:
 
 ![Create template repo](media/template_repo.png)
 ![Create template repo](media/template_repo_2.png)
 
+### 2. Deploy Azure AI Infrastructure
+
+Deploy the required Azure AI infrastructure using the Bicep templates. This single deployment will create all necessary resources including Azure AI Foundry project, AI agents, and user-assigned managed identity.
+
+```bash
+# Login to Azure
+az login
+
+# Set your subscription
+az account set --subscription "your-subscription-id"
+
+# Deploy the AI Foundry infrastructure (subscription-level deployment)
+az deployment sub create \
+  --location "swedencentral" \
+  --template-file "infra/bicep/agentsSetup.bicep" \
+  --parameters @infra/bicep/agentsSetup.bicepparam 
+```
+
+**PowerShell Alternative:**
+```powershell
+# Login and deploy
+Connect-AzAccount
+Set-AzContext -SubscriptionId "your-subscription-id"
+
+New-AzSubscriptionDeployment `
+  -Location "swedencentral" `
+  -TemplateFile "infra/bicep/agentsSetup.bicep" `
+  -TemplateParameterFile "infra/bicep/agentsSetup.bicepparam" 
+```
+
+Save the outputs from the deployment - you'll need these values for GitHub configuration.
+
 ### 3. Configure Federated Identity Credentials
 
-2. Update the user-assigned managed identity with federated credential details from your repository for pull_request entity:
+Update the user-assigned managed identity with federated credential details from your repository for pull_request entity:
 
 ![Federated credentials setup](media/fed_1.png)
 ![Federated credentials configuration](media/fed_2.png)
 
+> **Important**: Replace `YOUR_GITHUB_USERNAME/YOUR_REPO_NAME` with your actual GitHub repository details.
+
 ### 4. Configure GitHub Repository Secrets and Variables
 
-3. Navigate to your GitHub repository → Settings → Secrets and variables → Actions
+Navigate to your GitHub repository → Settings → Secrets and variables → Actions
 
-Add the following **Repository Secrets**:
+Add the following **Repository Secrets** (from deployment outputs):
 
-| Secret Name | Description | Example Value |
-|-------------|-------------|---------------|
-| `AZURE_CLIENT_ID` | User-Assigned Managed Identity Client ID | `12345678-1234-1234-1234-123456789012` |
-| `AZURE_TENANT_ID` | Azure AD Tenant ID | `87654321-4321-4321-4321-210987654321` |
-| `AZURE_SUBSCRIPTION_ID` | Target Azure Subscription ID for tests| `abcdef12-3456-7890-abcd-ef1234567890` |
+| Secret Name | Description |
+|-------------|-------------|
+| `AZURE_CLIENT_ID` | User-Assigned Managed Identity Client ID |
+| `AZURE_TENANT_ID` | Azure AD Tenant ID |
+| `AZURE_SUBSCRIPTION_ID` | Target Azure Subscription ID |
 
-Add the following **Repository Variables**:
+Add the following **Repository Variables** (from deployment outputs):
 
-| Variable Name | Description | Example Value |
-|---------------|-------------|---------------|
-| `PROJECT_ENDPOINT` | Azure AI Foundry Project Endpoint | `https://projectname.services.ai.azure.com/api/projects/firstProject`|
-| `ASSISTANT_ID` | Azure AI Agent/Assistant ID | `asst_Yh8QGJKa0wAZA7DZQA7DZLTk` |
+| Variable Name | Description |
+|---------------|-------------|
+| `PROJECT_ENDPOINT` | Azure AI Foundry Project Endpoint |
+| `ASSISTANT_ID` | Azure AI Agent/Assistant ID |
 
 ### 5. Test Your Setup
 
-4. Create a pull request in the `policyDefinitions` folder to validate that the workflow runs properly:
+Create a pull request in the `policyDefinitions` folder to validate that the workflow runs properly:
 
 ![Create pull request](media/pr_1.png)
 ![Pull request workflow](media/pr_2.png)
 
-5. Continue to use this for your policy development!
+## Creating Your First Policy Test
 
-## What It Does
-
-The PolicyAgent workflow provides automated Azure Policy management:
-
-### 🔄 **Automated Policy Deployment**
-- Automatically detects changes to policy definition files in pull requests
-- Uses PowerShell scripts to deploy Azure Policy definitions to your Azure subscription
-- Leverages Bicep templates for Infrastructure as Code deployment
-- Validates policy syntax and structure during deployment
-
-### 🤖 **AI-Powered Policy Testing**
-- Uses Azure AI Foundry Agent to intelligently analyze and test policies
-- Generates realistic test scenarios for policy validation
-- Creates PowerShell scripts to simulate policy enforcement scenarios
-- Provides detailed feedback on policy effectiveness and potential issues
-
-### 📊 **Comprehensive Reporting**
-- Posts detailed test results as pull request comments
-- Includes success/failure status for each policy tested
-- Provides actionable insights and recommendations for policy improvements
-- Shows policy enforcement behavior and expected outcomes
-
-## How It Works
-
-The workflow consists of two main components:
-
-### 1. Policy Deployment (`PolicyDefinition` Job)
-- Detects changed JSON files in the `policyDefinitions/` folder
-- Uses the `deploy-policies.ps1` script to deploy policies to Azure
-- Leverages the `deployDef.ps1` utility script and `policyDef.bicep` template
-- Prepares policy content for AI analysis
-
-### 2. AI Testing (`PolicyAgent` Job)
-- Receives policy content from the deployment job
-- Uses the `test-policies.ps1` script to interact with Azure AI Foundry
-- Sends policy definitions to the configured AI agent/assistant
-- Processes AI-generated test results and posts them as PR comments
-
-## Repository Structure
-
-Your repository contains these key components:
-
-```
-AzurePolicyAgents/
-├── .github/
-│   ├── workflows/
-│   │   └── PolicyAgent.yml          # Main GitHub Action workflow
-│   └── scripts/
-│       ├── deploy-policies.ps1      # Policy deployment script
-│       ├── test-policies.ps1        # AI testing orchestration
-│       └── get-changed-files.sh     # File change detection
-├── policyDefinitions/
-│   └── allowedLocations.json.sample # Sample policy definition
-├── utilities/
-│   └── policyAgent/
-│       ├── deployDef.ps1           # Core deployment utility
-│       ├── policyDef.bicep         # Bicep template for policies
-│       └── policyDef.parameters.json # Template parameters
-└── infra/
-    └── bicep/                      # Azure AI infrastructure templates
-        ├── agentsSetup.bicep
-        └── agentInstructions/      # AI agent system prompts
-```
-
-## Policy Definition Format
-
-Place your Azure Policy definitions as JSON files in the `policyDefinitions/` folder. Example:
+1. **Create a policy file**: Add a JSON policy definition to the `policyDefinitions/` folder
+2. **Example policy** (`policyDefinitions/test-allowed-locations.json`):
 
 ```json
 {
   "properties": {
-    "displayName": "Allowed locations for resources",
+    "displayName": "Test - Allowed locations for resources",
     "policyType": "Custom",
     "mode": "Indexed",
-    "description": "This policy restricts the locations where resources can be deployed",
+    "description": "Test policy that restricts resource deployment to specific locations",
     "metadata": {
       "category": "General"
     },
@@ -147,7 +109,7 @@ Place your Azure Policy definitions as JSON files in the `policyDefinitions/` fo
         "defaultValue": ["eastus", "westus2"],
         "metadata": {
           "displayName": "Allowed locations",
-          "description": "The list of locations that can be specified when deploying resources"
+          "description": "List of allowed Azure regions for resource deployment"
         }
       }
     },
@@ -166,35 +128,34 @@ Place your Azure Policy definitions as JSON files in the `policyDefinitions/` fo
 }
 ```
 
-## Workflow Triggers
+3. **Create a pull request**: Commit your policy file and create a PR
+4. **Watch the workflow**: Monitor the GitHub Actions tab for workflow execution
+5. **Review results**: Check the PR comments for AI-generated test results
 
-The PolicyAgent workflow runs when:
-- **Pull Requests**: Created or updated with changes to `policyDefinitions/*.json` files
-- **Push to Main**: Changes are pushed to the main branch
+## What to Expect
 
-## Expected Results
+When you create a pull request with policy changes:
 
-After creating a pull request with policy changes, you'll see:
+1. **Workflow Triggers**: The GitHub Action automatically starts
+2. **Policy Deployment**: Your policies are deployed to the Azure subscription
+3. **AI Analysis**: The Azure AI agent analyzes your policy and generates tests
+4. **Results Posted**: Detailed test results appear as PR comments
 
-1. **GitHub Actions**: The workflow will run automatically
-2. **Policy Deployment**: Policies are deployed to your Azure subscription
-3. **AI Analysis**: The AI agent analyzes and tests your policies
-4. **PR Comments**: Detailed results are posted as comments on your pull request
-
-Example comment output:
+**Example Result**:
 ```markdown
 ## Azure Policy Test Results
 
 ### Summary: Processed 1 policy definition(s)
 
-### ✅ Policy Test Completed Successfully for `policyDefinitions/allowed-locations.json`
-The Policy 'Allowed locations for resources' successfully validated the policy enforcement.
+### ✅ Policy Test Completed Successfully for `policyDefinitions/test-allowed-locations.json`
+The Policy 'Test - Allowed locations for resources' successfully validated.
 
 **Details:**
-- Policy correctly denies resources in disallowed locations
-- Test scenarios confirmed expected behavior
-- No issues found with policy logic
+- Policy correctly blocks resource deployment to unauthorized regions
+- Test scenarios confirmed expected deny behavior
+- No syntax or logic issues detected
 ```
+![Results](media/pr_2.png)
 
 ## Troubleshooting
 
@@ -216,42 +177,82 @@ Error: Insufficient privileges to complete the operation
 ```
 Cannot find agent xxx. Please re-create it and retry
 ```
-**Solution**: Verify your `ASSISTANT_ID` variable matches your Azure AI Foundry agent ID.
+**Solution**: 
+- Verify your `ASSISTANT_ID` variable matches your Azure AI Foundry agent ID
+- Check that your AI agent is deployed and active in the Azure AI Foundry portal
+- Ensure your `PROJECT_ENDPOINT` is correct and accessible
 
 #### No Policy Files Found
 ```
 No JSON files found in the 'policyDefinitions' directory
 ```
-**Solution**: Ensure your policy files are in the `policyDefinitions/` folder with `.json` extensions.
+**Solution**: 
+- Ensure your policy files are in the `policyDefinitions/` folder with `.json` extensions
+- Check that your PR includes changes to files in the correct directory
+- Verify file names don't contain special characters or spaces
 
 #### Bicep Deployment Failures
 Check the deployment logs for specific Bicep template errors. Common issues:
 - Missing required parameters in `policyDef.parameters.json`
-- Invalid policy definition structure
-- Resource naming conflicts
+- Invalid policy definition JSON structure
+- Resource naming conflicts in Azure
+- Insufficient permissions to create policy definitions
+
+#### GitHub Actions Workflow Not Triggering
+**Solution**:
+- Ensure you're modifying files in `policyDefinitions/*.json`
+- Check that the workflow file exists at `.github/workflows/PolicyAgent.yml`
+- Verify you have the correct repository permissions
+- Make sure the workflow is enabled in your repository settings
 
 ### Debug Steps
 
-1. **Check GitHub Actions Logs**: Review detailed logs in the Actions tab
-2. **Verify Azure Permissions**: Test your managed identity permissions manually
-3. **Validate AI Configuration**: Test your AI agent in the Azure AI Foundry portal
-4. **Check File Paths**: Ensure policy files are in the correct directory structure
-5. **Test Policy JSON**: Validate your policy JSON using Azure Policy tools
+1. **Check GitHub Actions Logs**: 
+   - Go to your repository → Actions tab
+   - Click on the failed workflow run
+   - Review detailed logs for each job step
 
-## Current Limitations
+2. **Verify Azure Permissions**: 
+   ```bash
+   # Test your managed identity permissions
+   az login --identity --username <client-id>
+   az policy definition list --subscription <subscription-id>
+   ```
 
-- Only supports JSON policy definition files in the `policyDefinitions/` folder
-- Requires manual setup of Azure AI Foundry infrastructure
-- AI-generated tests run in simulation mode and may not reflect all real-world scenarios
-- Limited to pull request and main branch triggers
-- Requires federated identity setup for each repository
+3. **Validate AI Configuration**: 
+   - Test your AI agent in the Azure AI Foundry portal
+   - Verify the agent responds to basic queries
+   - Check that the project endpoint is accessible
 
-## Next Steps
+4. **Check File Structure**: 
+   ```bash
+   # Verify your repository structure
+   ls -la policyDefinitions/
+   cat policyDefinitions/your-policy.json | jq .
+   ```
 
-Once your setup is working:
-1. Add your custom policy definitions to the `policyDefinitions/` folder
-2. Create pull requests to test the automated workflow
-3. Review AI-generated test results and refine your policies
-4. Monitor Azure costs associated with AI agent usage
-5. Customize the AI agent prompts in `infra/bicep/agentInstructions/` as needed
+5. **Test Policy JSON**: 
+   - Use Azure Policy extension in VS Code for validation
+   - Test policy JSON in Azure portal policy definition creator
+   - Validate JSON syntax using online JSON validators
+
+
+## Quick Reference
+
+### File Locations
+- Policy definitions: `policyDefinitions/*.json`
+- Workflow: `.github/workflows/PolicyAgent.yml`
+- Deployment scripts: `.github/scripts/`
+- Utilities: `utilities/policyAgent/`
+- Infrastructure: `infra/bicep/`
+
+### Required Secrets & Variables
+- **Secrets**: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`
+- **Variables**: `PROJECT_ENDPOINT`, `ASSISTANT_ID`
+
+### Workflow Triggers
+- Pull requests with changes to `policyDefinitions/*.json`
+- Push to main branch
+
+For complete details on how the system works, see the main [README](../README.md).
 
