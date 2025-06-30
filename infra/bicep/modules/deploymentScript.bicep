@@ -10,7 +10,9 @@ param azAgentName string = 'TestProxyAgent'
 param modelDeploymentName string = 'gpt-4o'
 param setupType string = ''
 
-var scriptSetupType = setupType == 'azureAIAgents' ? loadTextContent('../scriptContent/proxyToAgents.ps1') : ''
+var scriptSetupType = setupType == 'azureAIAgents'
+  ? loadTextContent('../scriptContent/proxyToAgents.ps1')
+  : ''
 
 resource userAssignedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2018-11-30' = {
   name: '${resourceName}-uai'
@@ -33,7 +35,6 @@ resource initialize 'Microsoft.Resources/deploymentScripts@2020-10-01' = {
   kind: 'AzurePowerShell'
   dependsOn: [
     roleAssignmentAIAgents
-    
   ]
   identity: {
     type: 'UserAssigned'

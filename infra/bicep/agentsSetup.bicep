@@ -201,3 +201,7 @@ output openAIModelName string = setupType == 'azureOpenAIAssistants' ? azureOpen
 output openAIModelDeploymentName string = setupType == 'azureOpenAIAssistants'
   ? azureOpenAI.outputs.modelDeploymentName
   : ''
+
+// Shared Infrastructure Outputs
+output resourceGroupName string = rgName
+output userAssignedIdentityId string = initializeAgentProxySetup.outputs.userAssignedIdentityId
