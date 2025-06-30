@@ -1,0 +1,119 @@
+name: Azure Policy Agent
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "policyDefinitions/*.json"
+
+permissions:
+  id-token: write
+  contents: write
+  pull-requests: write
+
+jobs:
+  PolicyDefinition:
+    if: github.event_name == 'pull_request' && github.event.action != 'closed' # Only run on pull requests
+    runs-on: ubuntu-latest
+    outputs:
+      policyContentBase64: ${{ steps.deploy-policy.outputs.policyContentBase64 }}
+      processedFilesCount: ${{ steps.deploy-policy.outputs.processedFilesCount }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          enable-AzPSSession: true
+
+      - name: Get changed files
+        id: changed-files
+        shell: bash
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          chmod +x ./.github/scripts/get-changed-files.sh
+          ./.github/scripts/get-changed-files.sh
+
+      - name: Deploy Azure Policy Definition and Assignment
+        id: deploy-policy
+        uses: azure/powershell@v2
+        with:
+          azPSVersion: latest
+          inlineScript: |
+            ./.github/scripts/deploy-policies.ps1 `
+              -JsonFiles "${{ steps.changed-files.outputs.json_files }}" `
+              -JsonFilesCount "${{ steps.changed-files.outputs.json_files_count }}"
+
+  PolicyAgent:
+    runs-on: ubuntu-latest
+    if: needs.PolicyDefinition.outputs.policyContentBase64 != ''
+    needs: PolicyDefinition
+    env:
+      PROJECT_ENDPOINT: ${{ vars.PROJECT_ENDPOINT }}
+      ASSISTANT_ID: ${{ vars.ASSISTANT_ID }}
+      AZUREPS_HOST_ENVIRONMENT: "GitHubActions"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+# 
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          enable-AzPSSession: true
+
+      - name: Get Policy Content from Previous Job
+        id: get-policy-content
+        run: |
+          echo "Retrieved PolicyContentBase64:"
+          echo "${{ needs.PolicyDefinition.outputs.policyContentBase64 }}"
+          echo "Number of processed files: ${{ needs.PolicyDefinition.outputs.processedFilesCount }}"
+
+          # Decode the Base64 content which contains JSON array of all policy files
+          echo "${{ needs.PolicyDefinition.outputs.policyContentBase64 }}" | base64 --decode > allPolicyContents.json
+
+          echo "Contents of allPolicyContents.json:"
+          cat allPolicyContents.json
+
+          # Extract individual policy files for processing
+          jq -r '.[] | @base64' allPolicyContents.json > policyFiles.txt || echo "[]" > policyFiles.txt
+        shell: bash
+
+      - name: Policy Testing (AI Foundry Agent Service)
+        uses: azure/powershell@v2
+        with:
+          azPSVersion: latest
+          inlineScript: |
+            ./.github/scripts/test-policies.ps1 `
+              -Endpoint $env:PROJECT_ENDPOINT `
+              -AssistantId $env:ASSISTANT_ID
+
+      - name: "Post Result as Comment"
+        if: ${{ needs.PolicyDefinition.result == 'success' }}
+        shell: bash
+        run: |
+          if [ -f /tmp/RESULT.md ]; then
+            gh pr comment ${{ github.event.pull_request.number }} --body-file /tmp/RESULT.md
+            cat /tmp/RESULT.md
+          else
+            echo "There are no results, so no comments are posted. For further information, please look into the validate step."
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
