@@ -48,8 +48,7 @@ param addKnowledge string = 'none'
 @description('Optionally add sample scenarios')
 @allowed([
   'none'
-  'finance'
-  'customerSupport'
+  'policy'
 ])
 param sampleScenario string = 'none'
 

@@ -4,9 +4,9 @@ param location string = resourceGroup().location
 param userAssignedIdentityId string = ''
 param azAIAgentUri string
 param modelDeploymentName string = 'gpt-4o'
-param sampleScenario string = 'finance'
+param sampleScenario string = 'policy'
 
-var scriptSampleScenario = sampleScenario == 'finance' ? loadTextContent('../scriptContent/finance.ps1') : sampleScenario == 'customerSupport' ? loadTextContent('../scriptContent/customerSupport.ps1') : ''
+var scriptSampleScenario = sampleScenario == 'policy' ? loadTextContent('../scriptContent/proxyToAgents.ps1') : ''
 
 resource initialize 'Microsoft.Resources/deploymentScripts@2020-10-01' = {
   name: 'initialize-${sampleScenario}'

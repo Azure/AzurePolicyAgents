@@ -10,7 +10,7 @@ param azAgentName string = 'TestProxyAgent'
 param modelDeploymentName string = 'gpt-4o'
 param setupType string = ''
 
-var scriptSetupType = setupType == 'azureAIAgents' ? loadTextContent('../scriptContent/proxyToAgents.ps1') : setupType == 'azureOpenAIAssistants' ? loadTextContent('../scriptContent/proxyToAssistantsAPI.ps1') : ''
+var scriptSetupType = setupType == 'azureAIAgents' ? loadTextContent('../scriptContent/proxyToAgents.ps1') : ''
 
 resource userAssignedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2018-11-30' = {
   name: '${resourceName}-uai'

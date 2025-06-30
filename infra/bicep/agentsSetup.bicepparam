@@ -23,4 +23,4 @@ param agentModelSkuName = 'GlobalStandard' // Model SKU name - will apply to all
 param addKnowledge = 'groundingWithBing' // Add knowledge to the AI Agents - 'none', 'groundingWithBing', or 'aiSearch'
 
 // Additional parameter for sample setups and demos
-param sampleScenario = 'finance' // Add sample scenarios - 'none' or 'finance'
+param sampleScenario = 'none' // Add sample scenarios - 'none' or 'finance'
