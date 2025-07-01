@@ -20,7 +20,7 @@ $AzurePolicyAgentDeployment = New-AzSubscriptionDeployment `
 
 # Installing Metro-AI Powershell module for declarative management of Azure AI Agent (and to bypass current limmitations of deploymentScripts)
 
-Install-Module -Name Metro.AI -Force
+#Install-Module -Name Metro.AI -Force
 
 # Setting Metro AI agent context using the deployment outputs
 
@@ -28,7 +28,7 @@ Set-MetroAIContext -Endpoint $AzurePolicyAgentDeployment.Outputs.agentEndpoint.v
 
 # Creating the Azure Policy Agent using the provided JSON definition
 
-$AgentDefinition = Invoke-RestMethod -uri "https://gist.githubusercontent.com/krnese/c4ee2c9db19cdd09028d3e7da4ff8141/raw/c7e3b78cb62d22b7779f2200fcae2a0633a32b4c/azurePolicyAgent.json" 
+$AgentDefinition = Invoke-RestMethod -uri "https://gist.githubusercontent.com/krnese/c4ee2c9db19cdd09028d3e7da4ff8141/raw/4507b8cff32fbf4c56e72265da84c4977b4a834f/azurePolicyAgent.json" 
 
 try {
     $NewAgent = New-MetroAIAgent -Name "Azure Policy Agent" -InputObject $AgentDefinition
@@ -38,3 +38,17 @@ try {
     Write-Host "Agent definition: $($AgentDefinition | ConvertTo-Json -Depth 3)"
     throw
 }
+
+# Update AI Agent with Bing Grounding Connection
+$BingGroundingConnectionId = $AzurePolicyAgentDeployment.Outputs.bingConnectionId.value
+Set-MetroAIAgent -AssistantId $NewAgent.id `
+                 -EnableBingGrounding `
+                 -BingConnectionId $BingGroundingConnectionId `
+                 -Verbose
+
+# Update AI Agent with Microsoft Docs as MCP server
+Set-MetroAIAgent -AssistantId $NewAgent.id `
+    -EnableMcp -McpServerLabel 'Microsoft_Learn_MCP' `
+    -McpServerUrl 'https://learn.microsoft.com/api/mcp' `
+    -Temperature 0.2 `
+    -Verbose

@@ -162,3 +162,4 @@ output modelDeploymentName string = aiDeployment.name
 output projectResourceId string = project.id
 output aiHubName string = aiServices.name
 output aiProjectName string = project.name
+output bingGroundingConnectionId string = groundingWithBingConnection.id
