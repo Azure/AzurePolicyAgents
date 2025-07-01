@@ -25,21 +25,6 @@ First, create a new repository from this template:
 
 Deploy the required Azure AI infrastructure using the Bicep templates. This single deployment will create all necessary resources including Azure AI Foundry project, AI agents, and user-assigned managed identity.
 
-```bash
-# Login to Azure
-az login
-
-# Set your subscription
-az account set --subscription "your-subscription-id"
-
-# Deploy the AI Foundry infrastructure (subscription-level deployment)
-az deployment sub create \
-  --location "swedencentral" \
-  --template-file "infra/bicep/agentsSetup.bicep" \
-  --parameters @infra/bicep/agentsSetup.bicepparam 
-```
-
-**PowerShell Alternative:**
 ```powershell
 # Login to Azure and set the subscription context
 Connect-AzAccount
