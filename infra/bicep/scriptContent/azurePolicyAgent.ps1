@@ -20,7 +20,7 @@ $AzurePolicyAgentDeployment = New-AzSubscriptionDeployment `
 
 # Installing Metro-AI Powershell module for declarative management of Azure AI Agent (and to bypass current limmitations of deploymentScripts)
 
-#Install-Module -Name Metro.AI -Force
+Install-Module -Name Metro.AI -Force
 
 # Setting Metro AI agent context using the deployment outputs
 
@@ -38,13 +38,6 @@ try {
     Write-Host "Agent definition: $($AgentDefinition | ConvertTo-Json -Depth 3)"
     throw
 }
-
-# Update AI Agent with Bing Grounding Connection
-$BingGroundingConnectionId = $AzurePolicyAgentDeployment.Outputs.bingConnectionId.value
-Set-MetroAIAgent -AssistantId $NewAgent.id `
-                 -EnableBingGrounding `
-                 -BingConnectionId $BingGroundingConnectionId `
-                 -Verbose
 
 # Update AI Agent with Microsoft Docs as MCP server
 Set-MetroAIAgent -AssistantId $NewAgent.id `
