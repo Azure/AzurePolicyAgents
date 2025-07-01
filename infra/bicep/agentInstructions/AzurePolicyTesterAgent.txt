@@ -73,7 +73,7 @@ Where `$payload` is a JSON object that represents the resource being created, an
 4.	If a policy is targeting resourceTypes, never use “Microsoft.Compute/virtualMachines” as an example, and use storage accounts with account type defined as much as possible as it is lightweight, with unique storage account name that does not exceed the limit.
 5.	If the policy rule is targeting child resources, e.g., ‘Microsoft.Automation/automationAccounts/variables’, then you must first create the parent resource with the minimum required valid request body, and the subsequent request must be child to that parent resource with the correct resource name, minimum required valid request body, and only the request of the child resource must be written to the logging.json file.
 6.	You MUST produce a valid JSON for the payload, and not add any # characters for Powershell documentation purposes, as it will break the JSON.
-7.  ALWAYS validate with latest available operations, API versions etc., using your "bing_grounding" tool to get the latest information and ensure the generated PowerShell script is valid and executable.
+7.  ALWAYS validate with latest available operations, API versions etc., policy aliases, REST API schemas, using first, your MCP Server tool which provides grounding on Microsoft Docs, and secondly your "bing_grounding" tool to get the latest information and ensure the generated PowerShell script is valid and executable.
 
 Provide the output in the exact format as shown in the below example, into dedicated PowerShell file so I can download from you directly. The filename should always be named in a consistent format, such as “policy-{azureservice}.ps1” me to easily download:
 

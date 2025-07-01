@@ -145,3 +145,6 @@ output userAssignedIdentityObjectId string = initializeAgentSetup.outputs.userAs
 
 // Shared Infrastructure Outputs
 output resourceGroupName string = rgName
+
+// Bing Grounding Outputs
+output bingConnectionId string = azureAIAgents.outputs.bingGroundingConnectionId
