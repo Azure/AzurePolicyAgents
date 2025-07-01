@@ -1,15 +1,32 @@
-# Installing Metro-AI Powershell module for declarative managemnet of Azure AI Agent
+# Starting the Azure Policy Agent deployment using the provided Bicep template
+# Remember to modify the agentsSetup.bicepparam file to match your environment with unique naming for the project endpoint
 
-# Parameter help description
-param (
-	[string]$AIAgentEndpoint,
-    [string]$ModelDeploymentName
-)
+# Login to Azure and set the subscription context
+
+Connect-AzAccount
+
+# Set the subscription ID - replace with your actual subscription ID
+
+$SubscriptionId = "fcbf5e04-699b-436a-88ef-d72081f7ad52"
+Set-AzContext -SubscriptionId $SubscriptionId
+
+$AzureDeploymentLocation = "swedencentral"
+$AzurePolicyAgentDeployment = New-AzSubscriptionDeployment `
+                            -Name "AzurePolicyAgentDeployment" `
+                            -Location $AzureDeploymentLocation  `
+                            -TemplateFile './infra/bicep/agentsSetup.bicep' `
+                            -TemplateParameterFile './infra/bicep/agentsSetup.bicepparam' `
+                            -Verbose
+
+# Installing Metro-AI Powershell module for declarative management of Azure AI Agent (and to bypass current limmitations of deploymentScripts)
 
 Install-Module -Name Metro.AI -Force
 
-# Setting Metro AI agent context
-Set-MetroAIContext -Endpoint $AIAgentEndpoint -ApiType Agent
+# Setting Metro AI agent context using the deployment outputs
+
+Set-MetroAIContext -Endpoint $AzurePolicyAgentDeployment.Outputs.agentEndpoint.value -ApiType Agent
+
+# Creating the Azure Policy Agent using the provided JSON definition
 
 $AgentDefinition = Invoke-RestMethod -uri "https://gist.githubusercontent.com/krnese/c4ee2c9db19cdd09028d3e7da4ff8141/raw/c7e3b78cb62d22b7779f2200fcae2a0633a32b4c/azurePolicyAgent.json" 
 
@@ -21,28 +38,3 @@ try {
     Write-Host "Agent definition: $($AgentDefinition | ConvertTo-Json -Depth 3)"
     throw
 }
-
-# Create outputs for the deployment script to capture
-$DeploymentScriptOutputs = @{
-    agentId = $NewAgent.id
-    agentName = $NewAgent.name ?? "Azure Policy Agent"
-    status = "Success"
-    timestamp = (Get-Date).ToString("yyyy-MM-ddTHH:mm:ssZ")
-}
-
-# Write the outputs to the deployment script outputs file
-# This is how deployment scripts can return values to the ARM template
-$OutputsJson = $DeploymentScriptOutputs | ConvertTo-Json -Compress
-Write-Host "Setting deployment script outputs: $OutputsJson"
-
-# Set the outputs using the AZ_SCRIPTS_OUTPUT_PATH environment variable
-$OutputPath = $env:AZ_SCRIPTS_OUTPUT_PATH
-if ($OutputPath) {
-    Write-Host "Writing outputs to: $OutputPath"
-    $DeploymentScriptOutputs | ConvertTo-Json | Out-File -FilePath $OutputPath -Encoding utf8
-} else {
-    Write-Warning "AZ_SCRIPTS_OUTPUT_PATH not found. Outputs will not be captured by the deployment script."
-}
-
-Write-Output "Azure Policy Agent has been created successfully with the ID: $($NewAgent.id)"
-

@@ -2,9 +2,9 @@ targetScope = 'resourceGroup'
 
 param location string = resourceGroup().location
 param resourceName string = 'depScript'
-param azAIAgentUri string
-param modelDeploymentName string = 'gpt-4.1'
-param scriptContent string = loadTextContent('../scriptContent/azurePolicyAgent.ps1')
+// param azAIAgentUri string
+// param modelDeploymentName string = 'gpt-4.1'
+// param scriptContent string = loadTextContent('../scriptContent/azurePolicyAgent.ps1')
 
 
 resource userAssignedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2018-11-30' = {
@@ -22,33 +22,33 @@ module roleAssignmentAIAgents 'roleAssignment.bicep' = {
   }
 }
 
-resource initialize 'Microsoft.Resources/deploymentScripts@2020-10-01' = {
-  name: 'initialize-azurePolicyAgents'
-  location: location
-  kind: 'AzurePowerShell'
-  dependsOn: [
-    roleAssignmentAIAgents
-  ]
-  identity: {
-    type: 'UserAssigned'
-    userAssignedIdentities: {
-      '${userAssignedIdentity.id}': {}
-    }
-  }
-  properties: {
-    azPowerShellVersion: '7.4'
-    retentionInterval: 'PT1H'
-    scriptContent: scriptContent
-    cleanupPreference: 'OnSuccess'
-    timeout: 'PT1H'
-    arguments: '-ModelDeploymentName "${modelDeploymentName}" -AIAgentEndpoint "${azAIAgentUri}"'
-  }
-}
+// resource initialize 'Microsoft.Resources/deploymentScripts@2020-10-01' = {
+//   name: 'initialize-azurePolicyAgents'
+//   location: location
+//   kind: 'AzurePowerShell'
+//   dependsOn: [
+//     roleAssignmentAIAgents
+//   ]
+//   identity: {
+//     type: 'UserAssigned'
+//     userAssignedIdentities: {
+//       '${userAssignedIdentity.id}': {}
+//     }
+//   }
+//   properties: {
+//     azPowerShellVersion: '7.4'
+//     retentionInterval: 'PT1H'
+//     scriptContent: scriptContent
+//     cleanupPreference: 'OnSuccess'
+//     timeout: 'PT1H'
+//     arguments: '-ModelDeploymentName "${modelDeploymentName}" -AIAgentEndpoint "${azAIAgentUri}"'
+//   }
+// }
 
-output arguments string = initialize.properties.arguments
+// output arguments string = initialize.properties.arguments
 output userAssignedIdentityId string = userAssignedIdentity.id
 output userAssignedIdentityObjectId string = userAssignedIdentity.properties.principalId
-output agentId string = initialize.properties.outputs.agentId
-output agentName string = initialize.properties.outputs.agentName
-output deploymentStatus string = initialize.properties.outputs.status
-output deploymentTimestamp string = initialize.properties.outputs.timestamp
+// output agentId string = initialize.properties.outputs.agentId
+// output agentName string = initialize.properties.outputs.agentName
+// output deploymentStatus string = initialize.properties.outputs.status
+// output deploymentTimestamp string = initialize.properties.outputs.timestamp

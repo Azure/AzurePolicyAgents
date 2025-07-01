@@ -3,13 +3,6 @@ targetScope = 'subscription'
 @description('Location for all resources.')
 param location string = deployment().location
 
-@description('Type of setup to deploy')
-@allowed([
-  'azureAIAgents'
-  'azureOpenAIAssistants'
-])
-param setupType string = 'azureAIAgents'
-
 @description('Resource group name')
 param rgName string = ''
 
@@ -120,7 +113,7 @@ module callerIdRoleAssignments './modules/roleAssignment.bicep' = {
 }
 
 // Deployment script to initialize the Policy Agent
-module initializeAgentProxySetup './modules/deploymentScript.bicep' = {
+module initializeAgentSetup './modules/deploymentScript.bicep' = {
   name: 'initializeAgentProxySetup'
   dependsOn: [
     rg
@@ -130,8 +123,16 @@ module initializeAgentProxySetup './modules/deploymentScript.bicep' = {
   params: {
     location: location
     resourceName: resourceName
-    azAIAgentUri: azureAIAgents.outputs.agentEndpoint
-    modelDeploymentName: azureAIAgents.outputs.modelDeploymentName
+  }
+}
+
+module umiRoleAssignment './modules/roleAssignment.bicep' = {
+  name: 'umiRoleAssignment'
+  scope: resourceGroup(rgName)
+  params: {
+    objectId: initializeAgentSetup.outputs.userAssignedIdentityObjectId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: '${subscription().id}/providers/Microsoft.Authorization/roleDefinitions/8e3af657-a8ff-443c-a75c-2fe8c4bcb635'
   }
 }
 
@@ -140,7 +141,7 @@ output agentEndpoint string = azureAIAgents.outputs.agentEndpoint
 output agentModelName string = azureAIAgents.outputs.modelName
 output agentModelDeploymentName string = azureAIAgents.outputs.modelDeploymentName 
 output agentProjectResourceId string = azureAIAgents.outputs.projectResourceId
+output userAssignedIdentityObjectId string = initializeAgentSetup.outputs.userAssignedIdentityObjectId
 
 // Shared Infrastructure Outputs
 output resourceGroupName string = rgName
-output userAssignedIdentityId string = initializeAgentProxySetup.outputs.userAssignedIdentityId
