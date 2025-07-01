@@ -16,12 +16,6 @@ param rgName string = ''
 @description('Resource name prefix')
 param resourceName string = ''
 
-@description('Instructions for the proxy agent')
-param proxyAgentInstructions string = 'You are a proxy AI Agent that interacts with specialized AI Agents to solve complex tasks. Always ensure the agents respond and complete their runs before returning an answer. If you need to instantiate any new agents, always use model gpt-4o.'
-
-@description('Agent name')
-param proxyAgentName string = 'MetroProxyAgent'
-
 @description('Model name')
 param agentModelName string = 'gpt-4o'
 
@@ -44,18 +38,6 @@ param agentModelCapacity int = 150
   'aiSearch'
 ])
 param addKnowledge string = 'none'
-
-@description('Optionally add sample scenarios')
-@allowed([
-  'none'
-  'policy'
-])
-param sampleScenario string = 'none'
-
-var openApiSpecs = [
-  'https://gist.githubusercontent.com/krnese/2d2a37b6241a6493cbe3fddbc89a9f47/raw/274daddec2cbb20cb3e513c8d0ce257bbb39c62b/swagger.json'
-  'https://gist.githubusercontent.com/krnese/bdc6d6f76e927ec2cf54626aab07a5cf/raw/7bd665b2e3415df7924169b03ae457d3d0bd174f/aiAgentSwagger.json'
-]
 
 module rg './modules/rg.bicep' = {
   name: 'rg-${location}'
@@ -81,7 +63,7 @@ module logAnalyticsWorkspace './modules/logAnalytics.bicep' = {
 }
 
 // Optionally add Grounding with Bing
-module groundingWithBing './modules/bingGrounding.bicep' = if (addKnowledge == 'groundingWithBing' && sampleScenario != 'none') {
+module groundingWithBing './modules/bingGrounding.bicep' = if (addKnowledge == 'groundingWithBing') {
   name: 'groundingWithBing'
   scope: resourceGroup(rgName)
   dependsOn: [
@@ -92,22 +74,8 @@ module groundingWithBing './modules/bingGrounding.bicep' = if (addKnowledge == '
   }
 }
 
-// Only deploy the explicit Azure OpenAI resource if the setupType is set to 'azureOpenAIAssistants'. This will act as the backend AI Agents for the Proxy Agent
-module azureOpenAI './modules/azureOpenAI.bicep' = if (setupType == 'azureOpenAIAssistants') {
-  name: 'azureOpenAI'
-  dependsOn: [
-    rg
-  ]
-  scope: resourceGroup(rgName)
-  params: {
-    location: location
-    resourceName: resourceName
-    logAnaltyicsWorkspaceId: logAnalyticsWorkspace.outputs.logAnalyticsWorkspaceId
-  }
-}
-
-// Only deploy the Azure AI Agents if the setupType is set to 'azureAIAgents'. This will act as the backend AI Agents for the Proxy Agent
-module azureAIAgents './modules/azureAIServices.bicep' = if (setupType == 'azureAIAgents') {
+// Deploy Azure AI Agents
+module azureAIAgents './modules/azureAIServices.bicep' = {
   name: 'azureAIAgents'
   dependsOn: [
     rg
@@ -151,7 +119,7 @@ module callerIdRoleAssignments './modules/roleAssignment.bicep' = {
   }
 }
 
-// Deployment script to initialize the Proxy Agent with instruction and OpenAPI for Azure AI Agents
+// Deployment script to initialize the Policy Agent
 module initializeAgentProxySetup './modules/deploymentScript.bicep' = {
   name: 'initializeAgentProxySetup'
   dependsOn: [
@@ -162,45 +130,16 @@ module initializeAgentProxySetup './modules/deploymentScript.bicep' = {
   params: {
     location: location
     resourceName: resourceName
-    azAIAgentUri: setupType == 'azureAIAgents' ? azureAIAgents.outputs.agentEndpoint : azureOpenAI.outputs.endpoint
-    openApiDefinitionUri: setupType == 'azureOpenAIAssistants' ? openApiSpecs[0] : openApiSpecs[1]
+    azAIAgentUri: azureAIAgents.outputs.agentEndpoint
     modelDeploymentName: azureAIAgents.outputs.modelDeploymentName
-    azAIProxyInstructions: proxyAgentInstructions
-    azAIProxyUri: azureAIAgents.outputs.agentEndpoint
-    azAgentName: proxyAgentName
-    setupType: setupType
-  }
-}
-
-// Conditionally add sample scenarios
-module sampleScenarios './modules/sampleSetup.bicep' = if (sampleScenario != 'none' && setupType == 'azureAIAgents') {
-  name: 'initializeSampleScenarios'
-  dependsOn: [
-    rg
-    roleAssignments
-  ]
-  scope: resourceGroup(rgName)
-  params: {
-    location: location
-    azAIAgentUri: setupType == 'azureAIAgents' ? azureAIAgents.outputs.agentEndpoint : azureOpenAI.outputs.endpoint
-    modelDeploymentName: azureAIAgents.outputs.modelDeploymentName
-    sampleScenario: sampleScenario
-    userAssignedIdentityId: initializeAgentProxySetup.outputs.userAssignedIdentityId
   }
 }
 
 // Azure AI Agents Outputs
-output agentEndpoint string = setupType == 'azureAIAgents' ? azureAIAgents.outputs.agentEndpoint : ''
-output agentModelName string = setupType == 'azureAIAgents' ? azureAIAgents.outputs.modelName : ''
-output agentModelDeploymentName string = setupType == 'azureAIAgents' ? azureAIAgents.outputs.modelDeploymentName : ''
-output agentProjectResourceId string = setupType == 'azureAIAgents' ? azureAIAgents.outputs.projectResourceId : ''
-
-// Azure OpenAI Assistants Outputs
-output openAIEndpoint string = setupType == 'azureOpenAIAssistants' ? azureOpenAI.outputs.endpoint : ''
-output openAIModelName string = setupType == 'azureOpenAIAssistants' ? azureOpenAI.outputs.modelName : ''
-output openAIModelDeploymentName string = setupType == 'azureOpenAIAssistants'
-  ? azureOpenAI.outputs.modelDeploymentName
-  : ''
+output agentEndpoint string = azureAIAgents.outputs.agentEndpoint
+output agentModelName string = azureAIAgents.outputs.modelName
+output agentModelDeploymentName string = azureAIAgents.outputs.modelDeploymentName 
+output agentProjectResourceId string = azureAIAgents.outputs.projectResourceId
 
 // Shared Infrastructure Outputs
 output resourceGroupName string = rgName
