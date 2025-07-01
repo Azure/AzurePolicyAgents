@@ -2,17 +2,10 @@ targetScope = 'resourceGroup'
 
 param location string = resourceGroup().location
 param resourceName string = 'depScript'
-param openApiDefinitionUri string
-param azAIProxyUri string
 param azAIAgentUri string
-param azAIProxyInstructions string = 'You are a proxy AI Agent that interacts with specialized AI Agents to solve comlpex tasks. Always ensure the agents respons and complete their runs before returning an answer.'
-param azAgentName string = 'TestProxyAgent'
-param modelDeploymentName string = 'gpt-4o'
-param setupType string = ''
+param modelDeploymentName string = 'gpt-4.1'
+param scriptContent string = loadTextContent('../scriptContent/azurePolicyAgent.ps1')
 
-var scriptSetupType = setupType == 'azureAIAgents'
-  ? loadTextContent('../scriptContent/proxyToAgents.ps1')
-  : ''
 
 resource userAssignedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2018-11-30' = {
   name: '${resourceName}-uai'
@@ -30,7 +23,7 @@ module roleAssignmentAIAgents 'roleAssignment.bicep' = {
 }
 
 resource initialize 'Microsoft.Resources/deploymentScripts@2020-10-01' = {
-  name: 'initialize-${setupType}'
+  name: 'initialize-azurePolicyAgents'
   location: location
   kind: 'AzurePowerShell'
   dependsOn: [
@@ -43,14 +36,19 @@ resource initialize 'Microsoft.Resources/deploymentScripts@2020-10-01' = {
     }
   }
   properties: {
-    azPowerShellVersion: '5.8'
+    azPowerShellVersion: '7.4'
     retentionInterval: 'PT1H'
-    scriptContent: scriptSetupType
+    scriptContent: scriptContent
     cleanupPreference: 'OnSuccess'
     timeout: 'PT1H'
-    arguments: '-modelDeploymentName "${modelDeploymentName}" -azAIProxyInstructions \'${azAIProxyInstructions}\' -azAIProxyUri "${azAIProxyUri}" -openApiDefinitionUri "${openApiDefinitionUri}" -azAIAgentUri "${azAIAgentUri}" -azAgentName "${azAgentName}" -tenantId "${subscription().tenantId}"'
+    arguments: '-ModelDeploymentName "${modelDeploymentName}" -AIAgentEndpoint "${azAIAgentUri}"'
   }
 }
 
 output arguments string = initialize.properties.arguments
 output userAssignedIdentityId string = userAssignedIdentity.id
+output userAssignedIdentityObjectId string = userAssignedIdentity.properties.principalId
+output agentId string = initialize.properties.outputs.agentId
+output agentName string = initialize.properties.outputs.agentName
+output deploymentStatus string = initialize.properties.outputs.status
+output deploymentTimestamp string = initialize.properties.outputs.timestamp
