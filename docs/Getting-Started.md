@@ -41,19 +41,48 @@ az deployment sub create \
 
 **PowerShell Alternative:**
 ```powershell
-# Login and deploy
+# Login to Azure and set the subscription context
 Connect-AzAccount
-Set-AzContext -SubscriptionId "your-subscription-id"
 
-New-AzSubscriptionDeployment `
-  -Location "swedencentral" `
-  -TemplateFile "infra/bicep/agentsSetup.bicep" `
-  -TemplateParameterFile "infra/bicep/agentsSetup.bicepparam" 
+# Set the subscription ID - replace with your actual subscription ID
+$SubscriptionId = "your-subscription-id"
+Set-AzContext -SubscriptionId $SubscriptionId
+
+$AzureDeploymentLocation = "swedencentral"
+$AzurePolicyAgentDeployment = New-AzSubscriptionDeployment `
+                            -Name "AzurePolicyAgentDeployment" `
+                            -Location $AzureDeploymentLocation  `
+                            -TemplateFile './infra/bicep/agentsSetup.bicep' `
+                            -TemplateParameterFile './infra/bicep/agentsSetup.bicepparam' `
+                            -Verbose
+```
+
+### 3. Create and configure the Azure Policy Agent
+
+```powershell
+# Installing Metro-AI Powershell module for declarative management of Azure AI Agent (and to bypass current limmitations of deploymentScripts)
+
+Install-Module -Name Metro.AI -Force
+
+# Setting Metro AI agent context using the deployment outputs
+Set-MetroAIContext -Endpoint $AzurePolicyAgentDeployment.Outputs.agentEndpoint.value -ApiType Agent
+
+# Creating the Azure Policy Agent using the provided JSON definition
+$AgentDefinition = Invoke-RestMethod -uri "https://gist.githubusercontent.com/krnese/c4ee2c9db19cdd09028d3e7da4ff8141/raw/c7e3b78cb62d22b7779f2200fcae2a0633a32b4c/azurePolicyAgent.json" 
+
+try {
+    $NewAgent = New-MetroAIAgent -Name "Azure Policy Agent" -InputObject $AgentDefinition
+    Write-Host "Azure Policy Agent has been created successfully with the ID: $($NewAgent.id)"
+} catch {
+    Write-Host "Failed to create agent. Error: $($_.Exception.Message)"
+    Write-Host "Agent definition: $($AgentDefinition | ConvertTo-Json -Depth 3)"
+    throw
+}
 ```
 
 Save the outputs from the deployment - you'll need these values for GitHub configuration.
 
-### 3. Configure Federated Identity Credentials
+### 4. Configure Federated Identity Credentials
 
 Update the user-assigned managed identity with federated credential details from your repository for pull_request entity:
 
@@ -62,7 +91,7 @@ Update the user-assigned managed identity with federated credential details from
 
 > **Important**: Replace `YOUR_GITHUB_USERNAME/YOUR_REPO_NAME` with your actual GitHub repository details.
 
-### 4. Configure GitHub Repository Secrets and Variables
+### 5. Configure GitHub Repository Secrets and Variables
 
 Navigate to your GitHub repository → Settings → Secrets and variables → Actions
 
@@ -81,7 +110,7 @@ Add the following **Repository Variables** (from deployment outputs):
 | `PROJECT_ENDPOINT` | Azure AI Foundry Project Endpoint |
 | `ASSISTANT_ID` | Azure AI Agent/Assistant ID |
 
-### 5. Test Your Setup
+### 6. Test Your Setup
 
 Create a pull request in the `policyDefinitions` folder to validate that the workflow runs properly:
 
