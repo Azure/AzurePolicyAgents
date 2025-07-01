@@ -11,7 +11,9 @@ Azure Policy Agents streamlines the Azure Policy development lifecycle by provid
 - **Automated Policy Testing**: GitHub Actions workflow that automatically deploys and tests Azure Policy definitions
 - **AI-Powered Validation**: Uses Azure AI Foundry agents to generate intelligent test scenarios and validate policy behavior
 - **Infrastructure as Code**: Bicep templates for deploying policies and AI infrastructure
-- **Local Development Support**: Integration with VS Code through Model Context Protocol (MCP) Server for policy authoring and Azure resource interaction
+- **Local Development Support**: Integration with VS Code through [Model Context Protocol (MCP) Server for Azure Resource Graph](https://insiders.vscode.dev/redirect/mcp/install?name=Azure%20Resource%20Graph&config=%7B%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22@krnese/azure-resource-graph-mcp@latest%22%5D%2C%22env%22%3A%7B%22AZURE_SUBSCRIPTION_ID%22%3A%22YOUR_SUBSCRIPTION_ID%22%7D%7D)
+
+    > **⚠️ Important:** Replace `YOUR_SUBSCRIPTION_ID` in the VS Code configuration after installation with your actual Azure Subscription ID.) for policy development, authoring, Azure resource interaction, and best practices for security, compliance, and governance.
 
 ## ✨ Key Features
 
