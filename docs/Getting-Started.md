@@ -72,6 +72,16 @@ Set-MetroAIAgent -AssistantId $NewAgent.id `
     -McpServerUrl 'https://learn.microsoft.com/api/mcp' `
     -Temperature 0.2 `
     -Verbose
+
+# Writing required outputs to the console for further use in GitHub Actions using Federated Credentials
+Write-Host "Repository secrets:"
+Write-Host "AZURE_CLIENT_ID: $($AzurePolicyAgentDeployment.Outputs.azureClientId.Value)"
+Write-Host "TENANT_ID: $($AzurePolicyAgentDeployment.Outputs.azureTenantId.Value)"
+Write-Host "SUBSCRIPTION_ID: $($AzurePolicyAgentDeployment.Outputs.azureSubscriptionId.value)"
+
+Write-Host "Repository variables:"
+Write-Host "PROJECT_ENDPOINT: $($AzurePolicyAgentDeployment.Outputs.projectEndpoint.value)"
+Write-Host "Assistant_ID: $($NewAgent.id)"
 ```
 
 Save the outputs from the deployment - you'll need these values for GitHub configuration.
