@@ -1,8 +1,8 @@
 using './agentsSetup.bicep'
 
 // Basic resource parameters
-param rgName = 'AzPolicyAgent' // Name of the resource group for all resources
-param resourceName = 'AzPolicyFoundry' // Resource name prefix for all resources
+param rgName = 'AzKnPolicyAgent' // Name of the resource group for all resources
+param resourceName = 'AzKnPolicyFoundry' // Resource name prefix for all resources
 param location = 'swedencentral' // check for model availability and capacity in the model specific parameters below
 
 // AI agent parameters

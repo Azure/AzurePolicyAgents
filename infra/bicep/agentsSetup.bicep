@@ -126,9 +126,9 @@ module initializeAgentSetup './modules/deploymentScript.bicep' = {
   }
 }
 
-module umiRoleAssignment './modules/roleAssignment.bicep' = {
+module umiRoleAssignment './modules/subRoleAssignment.bicep' = {
   name: 'umiRoleAssignment'
-  scope: resourceGroup(rgName)
+  scope: subscription()
   params: {
     objectId: initializeAgentSetup.outputs.userAssignedIdentityObjectId
     principalType: 'ServicePrincipal'
