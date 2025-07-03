@@ -47,8 +47,12 @@ module roleAssignmentAIAgents 'roleAssignment.bicep' = {
 
 // output arguments string = initialize.properties.arguments
 output userAssignedIdentityId string = userAssignedIdentity.id
+output userAssignedClientId string = userAssignedIdentity.properties.clientId
 output userAssignedIdentityObjectId string = userAssignedIdentity.properties.principalId
 // output agentId string = initialize.properties.outputs.agentId
 // output agentName string = initialize.properties.outputs.agentName
 // output deploymentStatus string = initialize.properties.outputs.status
 // output deploymentTimestamp string = initialize.properties.outputs.timestamp
+
+output tenantId string = subscription().tenantId
+output subscriptionId string = subscription().subscriptionId

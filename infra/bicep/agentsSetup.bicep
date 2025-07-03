@@ -148,3 +148,9 @@ output resourceGroupName string = rgName
 
 // Bing Grounding Outputs
 output bingConnectionId string = azureAIAgents.outputs.bingGroundingConnectionId
+
+// Github output for secrets and variables
+output azureClientId string = initializeAgentSetup.outputs.userAssignedClientId
+output azureTenantId string = initializeAgentSetup.outputs.tenantId
+output azureSubscriptionId string = initializeAgentSetup.outputs.subscriptionId
+output projectEndpoint string = azureAIAgents.outputs.agentEndpoint
