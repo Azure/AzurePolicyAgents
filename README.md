@@ -15,6 +15,16 @@ Azure Policy Agents streamlines the Azure Policy development lifecycle by provid
 
     > **⚠️ Important:** Replace `YOUR_SUBSCRIPTION_ID` in the VS Code configuration after installation with your actual Azure Subscription ID.) for policy development, authoring, Azure resource interaction, and best practices for security, compliance, and governance.
 
+### 🎯 Supported Policy Effects
+
+| Effect | Status | Description |
+|--------|--------|-------------|
+| **Deny** | ✅ Supported | Prevents non-compliant resource deployments |
+| **Audit** | ✅ Supported | Logs compliance violations without blocking deployments |
+| **Modify** | 🚧 Coming Soon | Automatically modifies resources to ensure compliance |
+| **AuditIfNotExists** | 🚧 Coming Soon | Audits when related resources don't exist |
+| **DeployIfNotExists** | 🚧 Coming Soon | Automatically deploys missing required resources |
+
 ## ✨ Key Features
 
 - **🔄 Automated GitHub Workflows**: Deploy and test policies on PR creation with AI-powered analysis
