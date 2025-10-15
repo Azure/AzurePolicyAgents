@@ -66,13 +66,6 @@ try {
     throw
 }
 
-# Update AI Agent with Microsoft Docs as MCP server
-Set-MetroAIAgent -AssistantId $NewAgent.id `
-    -EnableMcp -McpServerLabel 'Microsoft_Learn_MCP' `
-    -McpServerUrl 'https://learn.microsoft.com/api/mcp' `
-    -Temperature 0.2 `
-    -Verbose
-
 # Writing required outputs to the console for further use in GitHub Actions using Federated Credentials
 Write-Host "Repository secrets:"
 Write-Host "AZURE_CLIENT_ID: $($AzurePolicyAgentDeployment.Outputs.azureClientId.Value)"
