@@ -1,0 +1,15 @@
+{
+  "policyAssignmentIds": [
+    "/providers/Microsoft.Management/managementGroups/CONTOSO-dev/providers/Microsoft.Authorization/policyAssignments/pa-d-vnet",
+    "/providers/Microsoft.Management/managementGroups/CONTOSO-dev/providers/microsoft.authorization/policyAssignments/pa-d-diag-settings"
+  ],
+  "testDelayStartMinutes": 5,
+  "vnetAssignmentName": "pa-d-vnet",
+  "testSubscription": "sub-d-mgmt-01",
+  "testResourceGroup": "rg-ae-d-policy-test-vnet-001",
+  "testManagementGroup": "CONTOSO-DEV",
+  "location": "australiaeast",
+  "location2": "australiasoutheast",
+  "tagsForResourceGroup": false,
+  "removeTestResourceGroup": true
+}

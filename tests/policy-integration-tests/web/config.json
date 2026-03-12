@@ -1,0 +1,22 @@
+{
+  "policyAssignmentIds": [
+    "/providers/Microsoft.Management/managementGroups/CONTOSO-dev/providers/Microsoft.Authorization/policyAssignments/pa-d-web",
+    "/providers/Microsoft.Management/managementGroups/CONTOSO-dev/providers/Microsoft.Authorization/policyAssignments/pa-d-pedns",
+    "/providers/Microsoft.Management/managementGroups/CONTOSO-dev/providers/microsoft.authorization/policyAssignments/pa-d-diag-settings"
+  ],
+  "testDelayStartMinutes": 15,
+  "testSubscription": "sub-d-mgmt-01",
+  "testResourceGroup": "rg-ae-d-policy-test-web-001",
+  "additionalResourceGroups": {
+    "crossSubPe": {
+      "subscription": "sub-d-mgmt-01",
+      "resourceGroup": "rg-ae-d-pol-test-web-cross-sub-pe-01"
+    }
+  },
+  "testManagementGroup": "contoso-dev",
+  "AppServicesAssignmentName": "pa-d-web",
+  "diagSettingsAssignmentName": "pa-d-diag-settings",
+  "location": "australiaeast",
+  "tagsForResourceGroup": false,
+  "removeTestResourceGroup": true
+}

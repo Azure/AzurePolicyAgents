@@ -1,0 +1,12 @@
+{
+  "policyAssignmentIds": [
+    "/providers/Microsoft.Management/managementGroups/CONTOSO-DEV/providers/Microsoft.Authorization/policyAssignments/pa-d-tags"
+  ],
+  "testDelayStartMinutes": 5,
+  "testSubscription": "sub-d-mgmt-01",
+  "testResourceGroup": "rg-ae-d-policy-test-tags-001",
+  "testManagementGroup": "CONTOSO-DEV",
+  "location": "australiaeast",
+  "tagsForResourceGroup": false,
+  "removeTestResourceGroup": true
+}
