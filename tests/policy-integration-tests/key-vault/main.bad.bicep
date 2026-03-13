@@ -18,38 +18,23 @@ var localConfig = loadJsonContent('config.json')
 var tags = globalConfig.tags
 var location = localConfig.location
 var namePrefix = globalConfig.namePrefix
-var subName = localConfig.testSubscription
-var vnetResourceGroup = globalConfig.subscriptions[subName].networkResourceGroup
-var vnetName = globalConfig.subscriptions[subName].vNet
-var peSubnetName = globalConfig.subscriptions[subName].peSubnet
-var resourceSubnetName = globalConfig.subscriptions[subName].resourceSubnet
-var keyVaultNameSuffix = substring((uniqueString(now, location)), 0, 5)
-var secretExpireDate = dateTimeToEpoch(dateTimeAdd(now, 'P13M'))
-var secretNotBeforeDate = dateTimeToEpoch(dateTimeAdd(now, '-P13M'))
-var keyExpireDate = dateTimeToEpoch(dateTimeAdd(now, 'P2Y'))
-var keyNotBeforeDate = dateTimeToEpoch(dateTimeAdd(now, '-P13M'))
+
 // define template specific variables
 var serviceShort = 'kv2'
 
 //Key vault name must container a random string so it's unique for each test deployment.
 //This is required because soft delete and purge protection is enabled. You cannot re-use the same KV name after deletion until the purge protection period has passed.
-var keyVaultName = 'kv-${namePrefix}-${serviceShort}${keyVaultNameSuffix}01'
+var keyVaultName = 'kv-${namePrefix}-${serviceShort}01'
 
-resource vnet 'Microsoft.Network/virtualNetworks@2023-11-01' existing = {
-  name: vnetName
-  scope: az.resourceGroup(vnetResourceGroup)
-
-  resource peSubnet 'subnets' existing = { name: peSubnetName }
-  resource resourceSubnet 'subnets' existing = { name: resourceSubnetName }
-}
-
-module kv 'br/public:avm/res/key-vault/vault:0.6.2' = {
-  name: '${uniqueString(deployment().name, location)}-test-kv-${serviceShort}'
-  params: {
-    name: keyVaultName
-    location: location
-    tags: tags
-    sku: 'premium'
+resource kv 'Microsoft.KeyVault/vaults@2025-05-01' = {
+  location: location
+  name: keyVaultName
+  tags: tags
+  properties: {
+    sku: {
+      family: 'A'
+      name: 'premium'
+    }
     publicNetworkAccess: 'Enabled'
     enableRbacAuthorization: false
     networkAcls: {
@@ -58,55 +43,9 @@ module kv 'br/public:avm/res/key-vault/vault:0.6.2' = {
       ipRules: []
       virtualNetworkRules: []
     }
-    privateEndpoints: [
-      {
-        name: 'pe-${keyVaultName}'
-        subnetResourceId: vnet::peSubnet.id
-        service: 'vault'
-        tags: tags
-      }
-    ]
-    keys: [
-      {
-        name: 'key1'
-        tags: tags
-        kty: 'RSA-HSM'
-        attributes: {
-          //exp: keyExpireDate //this should violate QHS01-005: Key Vault keys should have an expiration date
-        }
-      }
-      {
-        name: 'key2'
-        tags: tags
-        kty: 'RSA-HSM'
-        attributes: {
-          exp: keyExpireDate //this should violate QHS01-093: Keys should have the specified maximum validity period - 365 days
-          nbf: keyNotBeforeDate //this should violate QHS01-094: Keys should not be active for longer than the specified number of days - 365 days
-        }
-      }
-    ]
-    secrets: [
-      {
-        name: 'secret1'
-        tags: tags
-        attributes: {
-          //exp: secretExpireDate //this should violate QHS01-004: Key Vault secrets should have an expiration date
-        }
-        value: 'testValue1'
-      }
-      {
-        name: 'secret2'
-        tags: tags
-        attributes: {
-          exp: secretExpireDate //this should violate QHS01-100: Secrets should have the specified maximum validity period - 365 days
-          nbf: secretNotBeforeDate //this should violate QHS01-101: Secrets should not be active for longer than the specified number of days - 365 days
-        }
-        value: 'testValue1'
-      }
-    ]
   }
 }
 
-output name string = kv.outputs.name
-output resourceId string = kv.outputs.resourceId
-output location string = kv.outputs.location
+output name string = kv.name
+output resourceId string = kv.id
+output location string = kv.location

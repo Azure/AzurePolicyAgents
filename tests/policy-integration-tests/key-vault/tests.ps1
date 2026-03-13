@@ -50,9 +50,11 @@ If ($deploymentProvisioningState -ne 'Succeeded') {
 } else {
   Write-Output "Deployment provisioning state is '$deploymentProvisioningState'. Since audit policies are tested, run policy compliance scan before proceeding with tests."
   Set-AzContext -Subscription $env:testSubscriptionId | Out-Null
-  Write-Output "  - [$(getCurrentUTCString)]: Waiting for Policy compliance scan to finish for resource group '$env:testResourceGroup'."
+  Write-Output "[$(getCurrentUTCString)]: Waiting for Policy compliance scan to finish for resource group '$env:testResourceGroup'."
   $job = Start-AzPolicyComplianceScan -ResourceGroupName $env:testResourceGroup -AsJob
   $job | wait-job
+  Write-Output "[$(getCurrentUTCString)]: Policy compliance scan finished for resource group '$env:testResourceGroup'. Wait 1 minute for the results to be available before starting tests."
+  Start-Sleep -Seconds 60
 }
 
 #Parse deployment outputs
@@ -91,7 +93,7 @@ Write-Verbose "whatIfDeploymentTargetResourceId: $whatIfDeploymentTargetResource
 $violatingPolicies = @(
   @{
     policyAssignmentId          = $keyVaultPolicyAssignmentId
-    policyDefinitionReferenceId = 'pol-enforce-kv-rbac-authorization' #kv-should-use-rbac (KeyVault permission model should be configured to use Azure RBAC)
+    policyDefinitionReferenceId = 'KV-003' #KV-003: KeyVault permission model should be configured to use Azure RBAC
   }
 )
 
@@ -106,7 +108,7 @@ $test += New-ARTPropertyValueTestConfig 'KV-002: Key Vault should have purge pro
 
 #Audit / AuditIfNotExists policies
 
-$tests += New-ARTPolicyStateTestConfig 'KV-004: Azure Key Vault should disable public network access' $token $resourceId $keyVaultPolicyAssignmentId 'NonCompliant' 'pol-audit-deny-kv-public-network-access'
+$tests += New-ARTPolicyStateTestConfig 'KV-004: Azure Key Vault should disable public network access' $token $resourceId $keyVaultPolicyAssignmentId 'NonCompliant' 'KV-004'
 
 #DeployIfNotExists Policies
 $tests += New-ARTResourceExistenceTestConfig 'PEDNS-005: Private DNS Record for Key Vault PE must exist' $token $kvPrivateDNSARecordId 'exists'
@@ -130,5 +132,5 @@ Test-ARTResourceConfiguration @params
 #delete deployed resources
 if ($deploymentProvisioningState -eq 'Succeeded') {
   Write-output "Remove deployed test resources."
-  #  . ../.shared/delete-policy-test-deployed-resources.ps1
+  . ../.shared/delete-policy-test-deployed-resources.ps1
 }
