@@ -43,7 +43,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-11-01' existing = {
   resource resourceSubnet 'subnets' existing = { name: resourceSubnetName }
 }
 
-module kv 'br/public:avm/res/key-vault/vault:0.6.2' = {
+module kv 'br/public:avm/res/key-vault/vault:0.13.3' = {
   name: '${uniqueString(deployment().name, location)}-test-kv-${serviceShort}'
   params: {
     name: keyVaultName
