@@ -936,3 +936,679 @@ Function processPolicyRestrictionAPIResult {
   #return true if all the desired policy violations are matched with the actual policy violation
   $bMatchingPolicyViolation
 }
+
+#bicep helper functions
+
+#function to detect the template scope based on the schema defined in the ARM template
+Function getTemplateScope {
+  [CmdletBinding()]
+  [OutputType([string])]
+  Param (
+    [Parameter(Mandatory = $true, HelpMessage = 'Specify the template File content.')]
+    [object]$templateFileContent
+  )
+
+  $schema = $templateFileContent.'$schema'
+  Write-Verbose "[$(getCurrentUTCString)]: Arm template Schema: $schema" -Verbose
+  switch ($($schema -split ('/'))[-1].tolower()) {
+    $('subscriptiondeploymenttemplate.json#') {
+      $scope = 'subscription'
+    }
+    $('managementgroupdeploymenttemplate.json#') {
+      $scope = 'managementGroup'
+    }
+    $('deploymenttemplate.json#') {
+      $scope = 'resourceGroup'
+    }
+    $('tenantdeploymenttemplate.json#') {
+      $scope = 'tenant'
+    }
+    default {
+      Write-Error "[$(getCurrentUTCString)]: Invalid template scope"
+      exit -1
+    }
+  }
+  $scope
+}
+
+#function to invoke the deployment what-if REST API
+function getArmDeploymentWhatIfResult {
+  [CmdletBinding(positionalbinding = $false)]
+  [OutputType([object])]
+  param (
+    [parameter(Mandatory = $true)]
+    [ValidateScript({ test-path $_ -PathType Leaf })]
+    [string]$templateFilePath,
+
+    [parameter(Mandatory = $false)]
+    [ValidateScript({ test-path $_ -PathType Leaf })]
+    [string]$parameterFilePath,
+
+    [parameter(Mandatory = $false, HelpMessage = 'The deployment target resource Id. Leave it blank if the deployment scope is at the tenant level.')]
+    [string]$deploymentTargetResourceId = '',
+
+    [parameter(Mandatory = $false)]
+    [ValidateSet('FullResourcePayloads', 'ResourceIdOnly')]
+    [string]$resultFormat = 'FullResourcePayloads',
+
+    [parameter(Mandatory = $false)]
+    [ValidateRange(100, 1000)]
+    [int]$httpTimeoutSeconds = 300,
+
+    [parameter(Mandatory = $false)]
+    [ValidateRange(300, 1000)]
+    [int]$longRunningJobTimeoutSeconds = 300,
+
+    [parameter(Mandatory = $false)]
+    [ValidateRange(3, 10)]
+    [int]$maxRetry = 3,
+
+    [parameter(Mandatory = $false)]
+    [string]$azureLocation = 'australiaeast',
+
+    [Parameter(Mandatory = $true)]
+    [string]$token
+  )
+  $WarningPreference = 'SilentlyContinue'
+  Write-Verbose "[$(getCurrentUTCString)]: What-If validation for Bicep Template using ARM Deployment What-If REST API." -verbose
+
+  #Process template file
+  Write-Verbose "[$(getCurrentUTCString)]: Process template file '$templateFilePath'" -Verbose
+  $templateFileItem = Get-Item $templateFilePath
+  Write-Verbose "[$(getCurrentUTCString)]: TemplateFilePath: '$($templateFileItem.FullName)'" -Verbose
+  if ($templateFileItem.Extension -ieq '.bicep') {
+    Write-Verbose "[$(getCurrentUTCString)]: '$templateFilePath' is a bicep file. Convert to Json" -verbose
+    $templateFileContent = bicep build $templateFilePath --stdout | convertFrom-Json -Depth 99
+  } elseif ($templateFileItem.Extension -ieq '.json') {
+    Write-Verbose "[$(getCurrentUTCString)]: '$templateFilePath' is a json file. Get the content" -Verbose
+    $templateFileContent = Get-Content -Path $templateFilePath -Raw | convertFrom-Json -Depth 99
+  } else {
+    Throw "Template File '$templateFilePath' must be either a .json or .bicep file."
+  }
+  $deploymentScope = getTemplateScope -templateFileContent $templateFileContent
+  $defaultRetryAfterSeconds = 15
+  Write-Verbose "[$(getCurrentUTCString)]: $deploymentScope Level Deployment. Template file: '$templateFilePath'" -Verbose
+
+  $body = @{
+    properties = @{
+      mode           = 'Incremental'
+      whatIfSettings = @{
+        resultFormat = $resultFormat
+      }
+      template       = $templateFileContent
+    }
+  }
+  #Add location to the request body if the deployment scope is not resource group
+  if ($deploymentScope -ine 'resourcegroup') {
+    $body.add('location', $azureLocation)
+  }
+
+  #Process parameter file
+  If ($parameterFilePath) {
+    Write-Verbose "[$(getCurrentUTCString)]: ParameterFilePath: '$parameterFilePath'" -Verbose
+    $parameterFile = Get-Item $parameterFilePath
+    if ($parameterFile.Extension -ieq '.bicepparam') {
+      Write-Verbose "'$parameterFilePath' is a bicep parameter file. Convert to Json" -Verbose
+      $parameterFileContent = bicep build-params "$parameterFilePath" --stdout
+    } elseif ($parameterFile.Extension -ieq '.json') {
+      Write-Verbose "[$(getCurrentUTCString)]: '$parameterFilePath' is a json parameter file." -Verbose
+      $parameterFileContent = Get-Content -Path $parameterFilePath -Raw
+    }
+    #Read parameters from parameter file
+    $parameters = (ConvertFrom-JSON $parameterFileContent -Depth 99).parameters
+    $body.properties.Add('parameters', $parameters)
+  }
+
+  $headers = @{
+    'Authorization' = "Bearer $token"
+  }
+  $bodyJson = $body | ConvertTo-Json -Depth 99 -EscapeHandling 'EscapeNonAscii'
+  #Create what-if deployment and retry if failed
+  $retryCount = 0
+  $whatIfSuccessful = $false
+  Do {
+    try {
+      $retryCount++
+      Write-Verbose "[$(getCurrentUTCString)]: Attempt $retryCount/$maxRetry`: What-If Template validation." -verbose
+      $whatIfDeploymentUri = buildWhatIfDeploymentUri -deploymentTargetResourceId $deploymentTargetResourceId
+      Write-Verbose "[$(getCurrentUTCString)]: What-If Deployment URI: '$whatIfDeploymentUri'" -verbose
+      Write-Verbose "[$(getCurrentUTCString)]: Create What-If deployment via URL '$whatIfDeploymentUri'..." -verbose
+      #What-If API reference: https://learn.microsoft.com/en-us/rest/api/resources/deployments/what-if?view=rest-resources-2021-04-01&tabs=HTTP
+
+      $request = Invoke-WebRequest -Uri $whatIfDeploymentUri -Headers $headers -method 'POST' -body $bodyJson -ConnectionTimeoutSeconds $httpTimeoutSeconds -ContentType 'application/json'
+      if ($request.StatusCode -eq 200) {
+        $whatIfSuccessful = $true
+        Write-Verbose "[$(getCurrentUTCString)]: What-If deployment completed successfully. No need to wait for long-running operations." -verbose
+        $result = $request.Content | ConvertFrom-Json -Depth 99
+      } elseif ($request.StatusCode -eq 202) {
+        Write-Verbose "[$(getCurrentUTCString)]: What-If deployment accepted. Will retrieve results by polling the long-running job..." -verbose
+        $responseHeaders = $request.Headers | ConvertTo-Json -Depth 99 -Compress
+        Write-Verbose "[$(getCurrentUTCString)]: Initial response headers: $responseHeaders" -verbose
+        $longRunningOperationUrl = $request.Headers.Location[0]
+        $retryAfterSeconds = [int]$request.Headers.'Retry-After'[0]
+
+        $shouldWait = $true
+        $waitStartTime = get-date
+        Do {
+          Write-Verbose "[$(getCurrentUTCString)]: What-If long running job URL: $longRunningOperationUrl" -verbose
+          if ($retryAfterSeconds) {
+            Write-Verbose "[$(getCurrentUTCString)]: Retry-After header found from initial HTTP response. Will retry after $retryAfterSeconds seconds." -verbose
+            Start-Sleep -Seconds $retryAfterSeconds
+          } else {
+            Write-Verbose "[$(getCurrentUTCString)]: Retry-After header not found from initial HTTP response. Will retry after $defaultRetryAfterSeconds seconds." -verbose
+            Start-Sleep -Seconds $defaultRetryAfterSeconds
+          }
+          $longRunningJobResult = Invoke-WebRequest -Uri $longRunningOperationUrl -Headers $headers -Method Get -ConnectionTimeoutSeconds $httpTimeoutSeconds -ErrorVariable longRunningJobError
+          if (!$longRunningJobError) {
+            Write-Verbose "[$(getCurrentUTCString)]: Long running job status: $($longRunningJobResult.StatusCode)" -verbose
+            $now = Get-date
+            if ($longRunningJobResult.StatusCode -eq 200 -or ($now - $waitStartTime).TotalSeconds -gt $longRunningJobTimeoutSeconds) {
+              $shouldWait = $false
+              if ($longRunningJobResult.StatusCode -eq 200) {
+                Write-Verbose "[$(getCurrentUTCString)]: Long running job completed." -verbose
+                $result = $longRunningJobResult.Content | ConvertFrom-Json -Depth 99
+                $whatIfSuccessful = $true
+              } else {
+                Throw "[$(getCurrentUTCString)]: Long Running Job did not complete within the timeout period. Status Code: $($result.StatusCode)"
+              }
+            }
+          }
+        }until (!$shouldWait)
+      } else {
+        Write-Verbose "[$(getCurrentUTCString)]: Failed to create what-if deployment. HTTP response status code: $($request.StatusCode)" -verbose
+      }
+    } Catch {
+      $statusCodeDescription = $_.Exception.Response.StatusCode
+      $statusCode = [int]$statusCodeDescription
+      Write-Verbose "[$(getCurrentUTCString)]: Error occurred while creating the what-if deployment."
+      Write-Verbose "[$(getCurrentUTCString)]: HTTP response status code: $statusCode - $statusCodeDescription " -Verbose
+      Write-Verbose "[$(getCurrentUTCString)]: Error: $_" -verbose
+      if ($retryCount -le $maxRetry) {
+        Write-Verbose "[$(getCurrentUTCString)]: Will retry in $defaultRetryAfterSeconds seconds." -verbose
+        Start-Sleep -Seconds $defaultRetryAfterSeconds
+      } else {
+        Write-Verbose "[$(getCurrentUTCString)]: Max retry count reached. Will not retry." -verbose
+      }
+    }
+
+  } until ($retryCount -ge $maxRetry -or $whatIfSuccessful -eq $true)
+  if ($result) {
+    $result
+  } else {
+    Write-Error "[$(getCurrentUTCString)]: Failed to create the what-if deployment after $maxRetry retries."
+    exit -1
+  }
+}
+
+#function to build the what-if deployment uri
+function buildWhatIfDeploymentUri {
+  [CmdletBinding()]
+  [OutputType([string])]
+  param (
+    [parameter(Mandatory = $false)]
+    [ValidateScript({ $_ -imatch '^\d{4}-\d{2}-\d{2}(-preview)?$' })]
+    [string]$apiVersion = '2025-04-01', #default to the latest api version as of July 2025, documented in ARM API specs https://github.com/Azure/azure-rest-api-specs/blob/main/specification/resources/resource-manager/Microsoft.Resources/deployments/stable/2025-04-01/deployments.json
+
+    [parameter(Mandatory = $true)]
+    [ValidateNotNull()]
+    [string]$deploymentTargetResourceId
+  )
+  $deploymentName = "{0}{1}" -f $( -join ((97..122) | Get-Random -Count 5 | Foreach-Object { [char]$_ })), $(Get-Random -Minimum 100 -Maximum 999)
+  $deploymentUri = 'https://management.azure.com{0}/providers/Microsoft.Resources/deployments/{1}/whatIf?api-version={2}' -f $deploymentTargetResourceId, $deploymentName, $apiVersion
+  $deploymentUri
+}
+
+function getWhatIfDeploymentResult {
+  [CmdletBinding()]
+  [OutputType([bool])]
+  param (
+    [Parameter(Mandatory = $true)][object]$desiredConfig
+  )
+
+  #get the what-if result
+  $whatIfRequestParams = @{
+    templateFilePath           = $desiredConfig.templateFilePath
+    deploymentTargetResourceId = $desiredConfig.deploymentTargetResourceId
+    token                      = $desiredConfig.token
+  }
+  if ($desiredConfig.parameterFilePath) {
+    $whatIfRequestParams.add('parameterFilePath', $desiredConfig.parameterFilePath)
+  }
+  if ($desiredConfig.httpTimeoutSeconds) {
+    $whatIfRequestParams.add('httpTimeoutSeconds', $desiredConfig.httpTimeoutSeconds)
+  }
+  if ($desiredConfig.longRunningJobTimeoutSeconds) {
+    $whatIfRequestParams.add('longRunningJobTimeoutSeconds', $desiredConfig.longRunningJobTimeoutSeconds)
+  }
+  if ($desiredConfig.maxRetry) {
+    $whatIfRequestParams.add('maxRetry', $desiredConfig.maxRetry)
+  }
+  if ($desiredConfig.azureLocation) {
+    $whatIfRequestParams.add('azureLocation', $desiredConfig.azureLocation)
+  }
+
+  $whatIfResult = getArmDeploymentWhatIfResult @whatIfRequestParams -Verbose
+
+  #compare the what-if result with the desired configuration
+  Write-Verbose "[$(getCurrentUTCString)]: What-if deployment status: $($whatIfResult.status). Desired What-If status: $($desiredConfig.requiredWhatIfStatus)" -verbose
+  $bStatusMatch = $whatIfResult.status -match $desiredConfig.requiredWhatIfStatus
+
+  #Compare the desired policyViolation (only when the status is 'Failed')
+  $bPolicyViolationMatch = $true
+  if ($whatIfResult.status -ieq 'Failed' -and $desiredConfig.policyViolation.count -gt 0) {
+    Write-Verbose "[$(getCurrentUTCString)]: Checking policy violations" -verbose
+    Write-Verbose "[$(getCurrentUTCString)]: Policy Violations from the What-If deployment result:" -verbose
+    Write-Verbose $($whatIfResult.error.details.additionalInfo | ConvertTo-Json -Depth 99) -verbose
+    $WhatIfResultPolicyViolations = $whatIfResult.error.details.additionalInfo | where-object { $_.type -ieq 'PolicyViolation' }
+    $bPolicyViolationMatch = processPolicyViolation -desiredPolicyViolation $desiredConfig.policyViolation -actualPolicyViolations $WhatIfResultPolicyViolations
+  }
+  $ComparisonResult = $bStatusMatch -and $bPolicyViolationMatch
+  $ComparisonResult
+}
+
+#function to validate the ARM template compatibility with the policy restrictions API
+function isARMCompatibleWithPolicyRestrictionAPI {
+  [CmdletBinding()]
+  [OutputType([object])]
+  param (
+    [Parameter(Mandatory = $true)][object]$template
+  )
+  $messages = @()
+  $isCompatible = $true
+
+  #make sure the template does not contain modules (nested deployments) because it's not supported.
+  foreach ($resource in $template.resources) {
+    if ($resource.type -ieq 'Microsoft.Resources/deployments') {
+      $messages += "Modules are not supported in the Bicep template. Only resources are allowed when validating against the policy restrictions API."
+      $isCompatible = $false
+    }
+  }
+  #make sure the name of each resource is specified and does not contain any functions
+  foreach ($resource in $template.resources) {
+    if ($resource.name -match '^\[.*\]$') {
+      $messages += "Resource name'$($resource.name)' is not hardcoded. It must be known at compile time and cannot be parameterised or defined as a variable. Please hardcode a name for the resource."
+      $isCompatible = $false
+    }
+  }
+
+  #make sure the resource location is hardcoded
+  foreach ($resource in $template.resources) {
+    if ($resource.location -and $($resource.location -match '^\[.*\]$')) {
+      $messages += "The location for resource $($resource.name) is set to '$($resource.location)', which is not hardcoded. It must be known at compile time and cannot be parameterised or defined as a variable. Please hardcode a location for the resource."
+      $isCompatible = $false
+    }
+  }
+  $result = New-Object PSObject -Property @{
+    isCompatible = $isCompatible
+    messages     = , $messages
+  }
+  $result
+}
+
+#function to check ARM resource configuration against the policy restrictions API
+function checkArmPolicyRestriction {
+  [CmdletBinding()]
+  [OutputType([bool])]
+  param (
+    [Parameter(Mandatory = $true)][object]$desiredConfig
+  )
+  Write-Verbose "[$(getCurrentUTCString)]: Processing policy restriction API results for $($desiredConfig.testName)" -verbose
+  $token = $desiredConfig.token
+
+  Write-Verbose "[$(getCurrentUTCString)]: Get policy restriction the ARM configuration for $($desiredConfig.resourceConfig.resourceName)" -verbose
+  #get policy restrictions
+  $pendingFields = @(
+    @{
+      field  = 'name'
+      values = @($desiredConfig.resourceConfig.resourceName)
+    }
+    @{
+      field = 'tags'
+    }
+  )
+  if ($desiredConfig.resourceConfig.location) {
+    $pendingFields += @{
+      field  = 'location'
+      values = @($desiredConfig.resourceConfig.location)
+    }
+  }
+  if ($null -eq $desiredConfig.resourceConfig.resourceContent) {
+    $resourceContent = @{}
+  } else {
+    $resourceContent = $desiredConfig.resourceConfig.resourceContent | convertFrom-Json -Depth 99 -AsHashtable
+  }
+  $resourceContent.add('type', $desiredConfig.resourceConfig.resourceType)
+  $policyRestrictionParams = @{
+    scopeResourceId    = $desiredConfig.deploymentTargetResourceId
+    includeAuditEffect = $desiredConfig.resourceConfig.includeAuditEffect
+    resourceApiVersion = $desiredConfig.resourceConfig.apiVersion
+    pendingFields      = $pendingFields
+    resourceContent    = $resourceContent
+    token              = $token
+  }
+  if ($desiredConfig.resourceConfig.resourceScope) {
+    $policyRestrictionParams['resourceScope'] = $desiredConfig.resourceConfig.resourceScope
+  }
+  Write-Verbose "  - Calling the Policy Restrictions API..." -verbose
+  $policyRestrictions = [PSCustomObject]@{
+    name               = $desiredConfig.resourceConfig.resourceName
+    policyRestrictions = $(getAzPolicyRestriction @policyRestrictionParams)
+  }
+  Write-Verbose "[$(getCurrentUTCString)]: Policy Restriction results for $($desiredConfig.resourceConfig.resourceName):" -verbose
+  Write-Verbose $($policyRestrictions | ConvertTo-Json -Depth 99) -verbose
+  $matchingPolicyViolation = processPolicyRestrictionAPIResult -desiredPolicyViolations $desiredConfig.policyViolation -actualRestrictionForResource $policyRestrictions
+
+  Write-Verbose "[$(getCurrentUTCString)]: Policy Restriction validation result for $($desiredConfig.testName): $bMatchingPolicyViolation" -verbose
+  #return true if all the desired policy violations are matched with the actual policy violation
+  $matchingPolicyViolation
+}
+
+#Terraform helper functions
+
+#Function to check if Terraform is initialized
+function isTFInitialized {
+  [CmdletBinding()]
+  [OutputType([bool])]
+  param (
+    [Parameter(Mandatory = $true)]
+    [string]$path
+  )
+  $isInit = $true
+  $tfLockFile = Join-Path -Path $path -ChildPath ".terraform.lock.hcl"
+  $tfChildDir = Join-Path -Path $path -ChildPath ".terraform"
+  if ( -not (Test-Path -Path $tfLockFile -PathType Leaf)) {
+    $isInit = $false
+  }
+  if ( -not (Test-Path -Path $tfChildDir -PathType Container)) {
+    $isInit = $false
+  }
+  $isInit
+}
+
+#Function to find the .tfvars file in the specified path
+function findTFVarsFile {
+  [CmdletBinding()]
+  param (
+    [Parameter(Mandatory = $true)]
+    [string]$path
+  )
+  $tfVarsFile = Get-ChildItem -Path $path -Filter "*.tfvars" -Recurse -ErrorAction SilentlyContinue
+  if ($tfVarsFile) {
+    return $tfVarsFile.name
+  } else {
+    Write-Verbose "No .tfvars file found in the specified path: $path."
+    return $null
+  }
+}
+
+#Function to run Terraform plan and convert the output to JSON
+function getTFPlanResult {
+  [CmdletBinding()]
+  param (
+    [Parameter(Mandatory = $true)]
+    [validateScript({ Test-Path $_ -PathType Container })]
+    [string]$path
+  )
+
+  #Make sure the Terraform template is initialized
+  $currentDir = Get-Location
+  if (-not (isTFInitialized -path $path)) {
+    Write-Verbose "Terraform is not initialized in the specified path: $path. Trying to initialize..."
+
+    try {
+      Set-Location -Path $path
+      terraform init -input=false
+      $exitCode = $?
+      if ($exitCode -ne $true) {
+        #set the location back to the original
+        Set-Location -Path $currentDir
+        Write-Error "Terraform initialization failed in the specified path: $path. Please check the output for details."
+        Exit 1
+      }
+      #set the location back to the original
+      Set-Location -Path $currentDir
+
+    } catch {
+      Write-Error "Failed to initialize Terraform in the specified path: $path. Error: $_. Try manually running 'terraform init' in the directory."
+      #set the location back to the original
+      Set-Location -Path $currentDir
+      Exit 1
+    }
+  } else {
+    Write-Verbose "Terraform is already initialized in the specified path: $path."
+  }
+
+  # Run the Terraform plan command
+  # Check if a .tfvars file exists in the specified path
+  $tfVarsFile = findTFVarsFile -path $path
+  # If multiple .tfvars files are found, throw an error
+  if ($tfVarsFile.Count -gt 1) {
+    Write-Error "Multiple .tfvars files found in the specified path: $path. Please specify a single .tfvars file."
+    Exit 1
+  }
+  $tfPlanFileName = "output.tfplan"
+  $tfPlanFilePath = Join-Path -Path $path -ChildPath $tfPlanFileName
+  if ($tfVarsFile) {
+    Set-Location -Path $path
+    Write-Verbose "Using .tfvars file: $tfVarsFile"
+    terraform plan --var-file="$tfVarsFile" -out='output.tfplan' | out-null
+  } else {
+    Set-Location -Path $path
+    Write-Verbose "No .tfvars file found. Running Terraform plan without variables."
+    terraform plan -out='output.tfplan' | out-null
+  }
+  $tfplanExitCode = $?
+
+  if ($tfplanExitCode -ne $true) {
+    Write-Error "Terraform plan failed in the specified path: $path. Please check the output for details."
+    Exit 1
+  }
+
+  #Convert the plan file to JSON
+  $tfPlanJsonFileName = "output.tfplan.json"
+  $tfPlanJsonFilePath = Join-Path -Path $path -ChildPath $tfPlanJsonFileName
+  Write-Verbose "Converting the Terraform plan file to JSON: $tfPlanJsonFileName"
+  terraform show -no-color -json $tfPlanFileName >$tfPlanJsonFileName
+  $tfPlanConvertExitCode = $?
+  if ($tfPlanConvertExitCode -ne $true) {
+    Write-Error "Failed to convert the Terraform plan file to JSON in the specified path: $path. Please check the output for details."
+    Exit 1
+  }
+  # Read the JSON file and convert it to a PowerShell object
+  $tfPlanJson = Get-Content -Path $tfPlanJsonFileName -Raw | ConvertFrom-Json
+  #Set the location back to the original
+  Set-Location -Path $currentDir
+  Write-Verbose "Cleaning up temporary files..."
+  if (Test-Path -Path $tfPlanFilePath -PathType Leaf) {
+    Write-Verbose "Removing temporary plan file: '$tfPlanFileName'..."
+    Remove-Item -Path $tfPlanFilePath -Force
+  }
+  If (Test-Path -Path $tfPlanJsonFilePath -PathType Leaf) {
+    Write-Verbose "Removing temporary JSON file: '$tfPlanJsonFileName'..."
+    Remove-Item -Path $tfPlanJsonFilePath -Force
+  }
+  $tfPlanJson
+}
+
+#function to check AZ API TF Plan result against the policy restrictions API
+function azApiTFPlanPolicyRestrictionCheck {
+  [CmdletBinding()]
+  [OutputType([System.Array])]
+  param (
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [PSObject]$tfPlan,
+
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$token
+  )
+  $policyRestrictions = @()
+  foreach ($tfResource in $tfPlan.planned_values.root_module.resources) {
+    Write-Verbose "Processing resource: $($tfResource.name) of type '$($tfResource.type)'..." -verbose
+    if ($tfResource.type -ine 'azapi_resource') {
+      Write-Warning "  - Unsupported resource - the resource type for $($tfResource.name) is '$($tfResource.type)'. Only AzAPI resources are supported. Skipping this resource."
+    } else {
+      Write-Verbose "  - Supported resource - the resource type for $($tfResource.name) is '$($tfResource.type)'. Proceeding with the policy restriction check." -verbose
+      $resourceType = $($tfResource.values.type -split ('@'))[0]
+      $apiVersion = $($tfResource.values.type -split ('@'))[1]
+      $deploymentScope = getTFResourceDeploymentScope -tfPlan $tfPlan -resourceName $tfResource.name
+      $parentId = getTFResourceParentId -tfPlan $tfPlan -resourceName $tfResource.name
+      Write-Verbose "  - Resource type: '$resourceType'" -verbose
+      Write-Verbose "  - API version: '$apiVersion'" -verbose
+      Write-Verbose "  - Deployment scope: '$deploymentScope'" -verbose
+      if ($parentId) {
+        Write-Verbose "  - Parent ID: '$parentId'" -verbose
+      } else {
+        Write-Verbose "  - Parent ID: UNKNOWN" -verbose
+      }
+      $pendingFields = @(
+        @{
+          field  = 'name'
+          values = @($tfResource.values.name)
+        }
+        @{
+          field = 'tags'
+        }
+      )
+      if ($tfResource.values.location) {
+        $pendingFields += @{
+          field  = 'location'
+          values = @($tfResource.values.location)
+        }
+      }
+      $resourceContent = $tfResource.values.body | ConvertTo-Json -Depth 99 | ConvertFrom-Json -Depth 99 -AsHashTable
+      if ($null -eq $resourceContent) {
+        $resourceContent = @{}
+      }
+      Write-Verbose "  - Resource content: $($resourceContent | ConvertTo-Json -Depth 99)" -verbose
+      $resourceContent.add('type', $resourceType)
+      $policyRestrictionParams = @{
+        scopeResourceId    = $deploymentScope
+        includeAuditEffect = $true
+        resourceApiVersion = $apiVersion
+        pendingFields      = $pendingFields
+        resourceContent    = $resourceContent
+        token              = $token
+      }
+      if ($parentId) {
+        $policyRestrictionParams['resourceScope'] = $parentId
+      }
+
+      Write-Verbose "  - Calling the Policy Restrictions API..." -verbose
+      $policyRestrictions += [PSCustomObject]@{
+        name               = $tfResource.name
+        address            = $tfResource.address
+        policyRestrictions = $(getAzPolicyRestriction @policyRestrictionParams)
+      }
+    }
+  }
+  , $policyRestrictions
+}
+
+#function to get the resource deployment scope from the Terraform plan output file
+function getTFResourceDeploymentScope {
+  [CmdletBinding()]
+  [OutputType([string])]
+  param (
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [PSObject]$tfPlan,
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$resourceName
+  )
+  $parentId = $null
+  $tfPlanResource = $tfPlan.planned_values.root_module.resources | Where-Object { $_.name -ieq $resourceName }
+  if (!$tfPlanResource) {
+    Write-Error "Resource '$resourceName' not found in the Terraform plan."
+    return $null
+  } else {
+    if ($tfPlanResource.values.parent_id.length -gt 0) {
+      $parentId = $tfPlanResource.values.parent_id
+      Write-Verbose "Parent ID for resource '$resourceName' is: $parentId"
+    } else {
+      Write-Warning "Parent ID for resource '$resourceName' is not known from the Terraform plan. Checking tfPlan Configurations..."
+      $tfPlanResourceConfig = $tfPlan.configuration.root_module.resources | Where-Object { $_.name -ieq $resourceName }
+      if (!$tfPlanResourceConfig) {
+        Write-Error "Resource '$resourceName' not found in the Terraform plan configurations."
+        return $null
+      } else {
+        if ($tfPlanResourceConfig.expressions.parent_id.references) {
+          foreach ($ref in $tfPlanResourceConfig.expressions.parent_id.references) {
+            #look up the reference value in $tfplan.planned_values.root_module.resources
+            $refResource = $tfPlan.planned_values.root_module.resources | Where-Object { $_.address -ieq $ref }
+            if ($refResource) {
+              break
+            }
+          }
+          Write-Verbose "Found the parent resource '$($refResource.name)'."
+          if ($refResource) {
+            #Look up the parent_id in the reference resource
+            $parentId = getTFResourceDeploymentScope -tfPlan $tfPlan -resourceName $refResource.name
+            if (!$(isResourceContainer -resourceId $parentId)) {
+              #If the parent resource is not a resource group, subscription or management group, we need to keep looking for the parent resource
+              Write-Verbose "The parent resource '$($refResource.name)' is not a resource group, subscription or management group. Looking for the parent resource..."
+              #Recursively call the function to
+              $parentId = getTFResourceDeploymentScope -tfPlan $tfPlan -resourceName $refResource.name
+            }
+          }
+        }
+      }
+    }
+    return $parentId
+  }
+}
+
+#function to get the resource parent_id from the Terraform plan output file
+function getTFResourceParentId {
+  [CmdletBinding()]
+  [OutputType([string])]
+  param (
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [PSObject]$tfPlan,
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$resourceName
+  )
+  $parentId = $null
+  $tfPlanResource = $tfPlan.planned_values.root_module.resources | Where-Object { $_.name -ieq $resourceName }
+  if (!$tfPlanResource) {
+    Write-Error "Resource '$resourceName' not found in the Terraform plan."
+    return $null
+  } else {
+    if ($tfPlanResource.values.parent_id.length -gt 0) {
+      $parentId = $tfPlanResource.values.parent_id
+      Write-Verbose "Parent ID for resource '$resourceName' is: $parentId"
+    } else {
+      Write-Warning "Parent ID for resource '$resourceName' is not known from the Terraform plan..."
+    }
+    return $parentId
+  }
+}
+
+#function to check Terraform policy violations from policy restriction API results
+Function checkTerraformPolicyRestriction {
+  [CmdletBinding()]
+  [OutputType([bool])]
+  param (
+    [Parameter(Mandatory = $true)][object]$desiredConfig
+  )
+  Write-Verbose "[$(getCurrentUTCString)]: Processing policy restriction API results for $($desiredConfig.testName)" -verbose
+  $token = $desiredConfig.token
+
+  #Get the Terraform plan results
+  Write-Verbose "[$(getCurrentUTCString)]: Get Terraform plan results for $($desiredConfig.terraformDirectory)" -verbose
+  $tfPlan = getTFPlanResult -Path $desiredConfig.terraformDirectory -Verbose
+
+  Write-Verbose "[$(getCurrentUTCString)]: Get policy restriction results for the terraform plan result for $($desiredConfig.terraformDirectory)" -verbose
+  $policyRestrictions = azApiTFPlanPolicyRestrictionCheck -tfPlan $tfPlan -token $token
+  Write-Verbose "[$(getCurrentUTCString)]: Policy Restriction results for $($desiredConfig.terraformDirectory):" -verbose
+  Write-Verbose $($policyRestrictions | ConvertTo-Json -Depth 99) -verbose
+  $matchingPolicyViolation = processPolicyRestrictionAPIResult -desiredPolicyViolations $desiredConfig.policyViolation -actualRestrictionForResource $policyRestrictions
+
+  Write-Verbose "[$(getCurrentUTCString)]: Policy Restriction validation result for $($desiredConfig.testName): $bMatchingPolicyViolation" -verbose
+  #return true if all the desired policy violations are matched with the actual policy violation
+  $matchingPolicyViolation
+}

@@ -252,5 +252,13 @@ Test-ARTResourceConfiguration @params
 
 The following example test cases can be found here:
 
-| Test Case Name | Description | Comment |
-| :------------- | :---------- | :------ |
+| Test Case Name | Tested Azure Resources | Policy Effects | Comment |
+| :------------- | :---------- | :------- | :------------- | :------ |
+| [key-vault](./key-vault) | Azure Key Vault | `Deny`, `Audit`, `Modify`, `DeployIfNotExists` |Reference for testing Key Vault related policies using a set of Bicep templates. |
+| [monitor](./monitor) | Azure Monitor resources such as Log Analytics Workspace and Action Group, etc. | `Deny`, `Audit`, `DeployIfNotExists` | Reference for testing Azure Monitor related policies using a set of Bicep templates, as well as using Azure Policy Restriction API. |
+| [storage-accoun-tf](./storage-account-tf) | Azure Storage Account | `Deny`, `Audit`, `Modify`, `DeployIfNotExists`  | Reference for testing Storage Account related policies using Terraform (using Azure Policy Restriction API). |
+| [tags](./tags) | Subscription and Resource Group tags | `Deny`, `Audit`, `Append` | Reference for testing subscription and resource group tagging policies using ARM templates and manual What-If API response from resource update request (updating tags of an existing subscription). |
+
+## Limitations
+
+The AzResourceTest module does not support testing policies with [resource provider modes](https://learn.microsoft.com/en-us/azure/governance/policy/concepts/definition-structure-basics#resource-provider-modes).

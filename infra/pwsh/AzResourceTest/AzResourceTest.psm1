@@ -1,7 +1,5 @@
 using module ./AzResourceTest-type.psm1
 using module ./AzResourceTest-helper.psm1
-using module ./AzResourceTest-terraform-helper.psm1
-using module ./AzResourceTest-bicep-helper.psm1
 
 # .EXTERNALHELP AzResourceTest-help.xml
 function New-ARTPropertyValueTestConfig {

@@ -1,15 +1,9 @@
 {
-  "policyAssignmentIds": [
-    "/providers/Microsoft.Management/managementGroups/CONTOSO-DEV/providers/Microsoft.Authorization/policyAssignments/pa-d-key-vault",
-    "/providers/Microsoft.Management/managementGroups/CONTOSO-DEV/providers/Microsoft.Authorization/policyAssignments/pa-d-pedns",
-    "/providers/Microsoft.Management/managementGroups/CONTOSO-DEV/providers/Microsoft.Authorization/policyAssignments/pa-d-diag-settings"
-  ],
-  "testDelayStartMinutes": 15,
+  "testName": "KeyVault",
   "keyVaultAssignmentName": "pa-d-key-vault",
-  "testSubscription": "sub-d-mgmt-01",
+  "testSubscription": "sub-d-lz-corp-01",
   "testResourceGroup": "rg-ae-d-policy-test-kv-001",
   "testManagementGroup": "CONTOSO-DEV",
   "location": "australiaeast",
-  "tagsForResourceGroup": false,
   "removeTestResourceGroup": true
 }

@@ -1,4 +1,4 @@
-using module ../../../ps_modules/AzResourceTest/AzResourceTest.psm1
+using module ../../../infra/pwsh/AzResourceTest/AzResourceTest.psd1
 
 $helperFunctionScriptPath = (resolve-path -relativeBasePath $PSScriptRoot -path '../../../scripts/pipelines/helper/helper-functions.ps1').path
 
