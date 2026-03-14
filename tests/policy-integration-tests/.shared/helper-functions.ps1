@@ -12,7 +12,7 @@ Function getTestConfig {
     [ValidateScript({ Test-Path $_ -PathType Leaf })][string]$TestConfigFilePath
   )
 
-  $testConfig = Get-Content $TestConfigFilePath | ConvertFrom-Json
+  $testConfig = Get-Content $TestConfigFilePath | ConvertFrom-Json -Depth 99 -AsHashtable
   $testConfig
 }
 
@@ -246,4 +246,114 @@ function validateBicep {
   }
   $bIsValid
 
+}
+
+#function to ensure the resource group exists and create if not exist.
+function createResourceGroupIfNotExist {
+  [CmdletBinding()]
+  Param (
+    [Parameter(Mandatory = $true, HelpMessage = 'Specify the subscription ID.')]
+    [ValidateNotNullOrEmpty()][string]$subscriptionId,
+
+    [Parameter(Mandatory = $true, HelpMessage = 'Specify the resource group name.')]
+    [ValidateNotNullOrEmpty()][string]$resourceGroupName,
+
+    [Parameter(Mandatory = $true, HelpMessage = 'Specify the location.')]
+    [ValidateNotNullOrEmpty()][string]$location,
+
+    [Parameter(Mandatory = $false, HelpMessage = 'Specify the tags.')]
+    [hashtable]$tags,
+
+    [Parameter(Mandatory = $true, HelpMessage = 'Specify the Resoruce Group API version.')]
+    [ValidateNotNullOrEmpty()][string]$apiVersion
+  )
+
+  $resourceGroupResourceId = '/subscriptions/{0}/resourceGroups/{1}' -f $subscriptionId, $resourceGroupName
+  $existingResourceGroup = getResourceViaARMAPI -ResourceId $resourceGroupResourceId -apiVersion $apiVersion
+  if (!($existingResourceGroup)) {
+    if ($tags) {
+      Write-Verbose "[$(getCurrentUTCString)]: Resource group '$resourceGroupName' doesn't exist. Creating the resource group '$resourceGroupName' with predefined tags..." -Verbose
+      $resourceGroup = newResourceGroupViaARMAPI -subscriptionId $subscriptionId -resourceGroupName $resourceGroupName -location $location -apiVersion $apiVersion -Tag $tags
+    } else {
+      Write-Verbose "[$(getCurrentUTCString)]: Resource group '$resourceGroupName' doesn't exist. Creating the resource group '$resourceGroupName' without any tags..." -Verbose
+      $resourceGroup = newResourceGroupViaARMAPI -subscriptionId $subscriptionId -resourceGroupName $resourceGroupName -location $location -apiVersion $apiVersion
+    }
+    $resourceGroup
+  } else {
+    Write-Verbose "[$(getCurrentUTCString)]: Resource group '$resourceGroupName' already exists." -Verbose
+    $existingResourceGroup.id
+  }
+}
+#function for post bicep / terraform deployment tasks (compliance scan for audit policies and wait for the test start time to be reached)
+function postDeploymentTasks {
+  [CmdletBinding()]
+  Param (
+    [Parameter(Mandatory = $true, HelpMessage = 'Test subscription Id.')]
+    [string]$testSubscriptionId,
+
+    [Parameter(Mandatory = $false, HelpMessage = 'Test resource group name.')]
+    [string]$testResourceGroup = $null,
+
+    [Parameter(Mandatory = $true, HelpMessage = 'If audit policies are tested.')]
+    [bool]$testAuditPoliciesFromDeployedResources,
+
+    [Parameter(Mandatory = $true, HelpMessage = 'If append/modify policies are tested.')]
+    [bool]$testAppendModifyPolicies,
+
+    [Parameter(Mandatory = $true, HelpMessage = 'If deployIfNotExists policies are tested.')]
+    [bool]$testDeployIfNotExistsPolicies,
+
+    [Parameter(Mandatory = $true, HelpMessage = 'Wait time in minutes for deployIfNotExists policies.')]
+    [int]$waitTimeForDeployIfNotExistsPoliciesAfterDeployment,
+
+    [Parameter(Mandatory = $true, HelpMessage = 'Wait time in minutes for append/modify policies.')]
+    [int]$waitTimeForAppendModifyPoliciesAfterDeployment,
+
+    [Parameter(Mandatory = $true, HelpMessage = 'Wait time in minutes for audit policies after compliance scan.')]
+    [int]$waitTimeForAuditPoliciesAfterComplianceScan
+  )
+  #capture deployment results
+  $deploymentCompletionTime = Get-Date
+
+
+  #Calculate the maximum wait time for append, modify and DINE policies
+  $waitTimeMinute = 0
+  if ($testAppendModifyPolicies) {
+    $waitTimeMinute = $waitTimeForAppendModifyPoliciesAfterDeployment
+  }
+  if ($testDeployIfNotExistsPolicies) {
+    if ($waitTimeMinute) {
+      $waitTimeMinute = [math]::Max($waitTimeMinute, $waitTimeForDeployIfNotExistsPoliciesAfterDeployment)
+    } else {
+      $waitTimeMinute = $waitTimeForDeployIfNotExistsPoliciesAfterDeployment
+    }
+  }
+  Write-Verbose "Calculated wait time for policies to be effective after deployment: $waitTimeMinute minutes." -Verbose
+  $testStartTime = $deploymentCompletionTime.AddMinutes($waitTimeMinute)
+
+  if ($testAuditPoliciesFromDeployedResources) {
+    Write-Output "Since audit policies are tested, run policy compliance scan before proceeding with tests."
+    Set-AzContext -Subscription $testSubscriptionId | Out-Null
+    if ($testResourceGroup) {
+      Write-Output "[$(getCurrentUTCString)]: Waiting for Policy compliance scan to finish for resource group '$testResourceGroup'."
+      $job = Start-AzPolicyComplianceScan -ResourceGroupName $testResourceGroup -AsJob
+    } else {
+      Write-Output "[$(getCurrentUTCString)]: Waiting for Policy compliance scan to finish for the entire subscription '$testSubscriptionId'."
+      $job = Start-AzPolicyComplianceScan -AsJob
+    }
+
+    $job | wait-job
+    Write-Output "[$(getCurrentUTCString)]: Policy compliance scan finished. Wait $waitTimeForAuditPoliciesAfterComplianceScan minute for the results to be available before starting tests."
+    Start-Sleep -Seconds ($waitTimeForAuditPoliciesAfterComplianceScan * 60)
+  }
+  #Make sure the test start time is reached before starting tests, to allow append, modify and deployIfNotExists policies to be effective.
+  $currentTime = Get-Date
+  if ($currentTime -lt $testStartTime) {
+    $waitTimeSpan = New-TimeSpan -Start $currentTime -End $testStartTime
+    $totalSecondsToWait = [math]::Ceiling($waitTimeSpan.TotalSeconds)
+    Write-Output "Waiting for $totalSecondsToWait seconds for append, modify and deployIfNotExists policies to be effective before starting tests."
+    Start-Sleep -Seconds $totalSecondsToWait
+  } else {
+    Write-Output "Current time has passed the calculated test start time. Starting tests now."
+  }
 }

@@ -3,13 +3,17 @@
     "/providers/Microsoft.Management/managementGroups/CONTOSO-DEV/providers/Microsoft.Authorization/policyAssignments/pa-d-monitor",
     "/providers/Microsoft.Management/managementGroups/CONTOSO-DEV/providers/Microsoft.Authorization/policyAssignments/pa-d-tags"
   ],
-  "testDelayStartMinutes": 5,
+  "testName": "AzureMonitor",
   "monitorAssignmentName": "pa-d-monitor",
-  "testSubscription": "sub-d-mgmt-01",
-  "crossSubActionResourceSubscription": "sub-d-lz-corp-01",
+  "testSubscription": "sub-d-lz-corp-01",
+  "crossSubActionResourceSubscription": "sub-d-lz-online-01",
   "testResourceGroup": "rg-ae-d-policy-test-mon-001",
   "testManagementGroup": "CONTOSO-DEV",
   "location": "australiaeast",
   "tagsForResourceGroup": false,
+  "testAuditPoliciesFromDeployedResources": false,
+  "testAppendModifyPolicies": false,
+  "testDeployIfNotExistsPolicies": false,
+  "testDenyPolicies": true,
   "removeTestResourceGroup": true
 }

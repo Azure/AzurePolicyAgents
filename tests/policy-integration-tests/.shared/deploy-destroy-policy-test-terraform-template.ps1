@@ -25,7 +25,7 @@ Param (
   [parameter(Mandatory = $false, HelpMessage = "Optional. The file name for the deployment result file.")]
   [string]$deploymentResultFileName = 'result.json',
 
-  [parameter(Mandatory = $false, HelpMessage = "Optional. he path to non-default workspaces that to be configured in the backend config.")]
+  [parameter(Mandatory = $false, HelpMessage = "Optional. The path to non-default workspaces that to be configured in the backend config.")]
   [AllowEmptyString()][AllowNull()]
   [string]$tfWorkspaceDir,
 
@@ -34,8 +34,7 @@ Param (
   [string]$tfAction,
 
   [Parameter(Mandatory = $false, HelpMessage = "Un-initialize Terraform after terraform apply or destroy.")]
-  [ValidateSet('true', 'false')]
-  [string]$uninitializeTerraform = 'false'
+  [bool]$uninitializeTerraform = $false
 )
 
 #region functions
@@ -96,10 +95,7 @@ $tfHelperFunctionScriptPath = join-path $PSScriptRoot 'terraform-helper-function
 . $helperFunctionScriptPath
 . $tfHelperFunctionScriptPath
 
-#Convert the uninitializeTerraform parameter to boolean
-$uninitializeTerraform = [bool]::Parse($uninitializeTerraform)
 $tfBackendStateFilePath = join-path -Path $tfBackendStateFileDirectory -ChildPath $tfStateFileName
-$tfEncryptedBackendStateFilePath = join-path -Path $tfBackendStateFileDirectory -ChildPath $tfEncryptedStateFileName
 #apply or destroy terraform template
 if ($tfAction -ieq 'apply') {
   if (-not (Test-Path -Path $tfBackendStateFileDirectory)) {
@@ -134,26 +130,19 @@ if (Test-Path -Path $backendConfigFilePath -PathType Leaf) {
 
 #If terraform apply, parse the terraform output and store as the pipeline variable
 if ($tfAction -eq 'apply') {
-  $provisioningState = $script:tfExitCode ? 'Succeeded' : 'Failed'
+  $script:terraformProvisioningState = $script:tfExitCode ? 'Succeeded' : 'Failed'
 
   Write-Verbose "[$(getCurrentUTCString)]: Parsing Terraform output." -Verbose
   $tfState = Get-Content -path $tfBackendStateFilePath -raw | ConvertFrom-Json -depth 99
-  $deploymentOutputs = $tfState.outputs | ConvertTo-Json -depth 99 -EnumsAsString -EscapeHandling 'EscapeNonAscii' -Compress
-  createResultFile -fileName $deploymentResultFileName -directory $tfBackendStateFileDirectory -terraformDeployment $true -provisioningState $provisioningState -deploymentOutputs $deploymentOutputs
-  Write-Output "##vso[task.setvariable variable=terraformDeploymentOutputs]$deploymentOutputs"
-  Write-Output "##vso[task.setvariable variable=terraformDeploymentOutputs;isOutput=true]$deploymentOutputs"
+  $script:terraformDeploymentOutputs = $tfState.outputs | ConvertTo-Json -depth 99 -EnumsAsString -EscapeHandling 'EscapeNonAscii' -Compress
+  createResultFile -fileName $deploymentResultFileName -directory $tfBackendStateFileDirectory -terraformDeployment $true -provisioningState $provisioningState -deploymentOutputs $script:terraformDeploymentOutputs
   $tfStateFile = Get-item -Path $tfBackendStateFilePath -ErrorAction Stop
   $tfStateFileDir = $tfStateFile.DirectoryName
 
   $tfStateFileName = $tfStateFile.Name
-  Write-Output "##vso[task.setVariable variable=tfStateFileName]$tfStateFileName"
-  Write-Output "##vso[task.setVariable variable=tfStateFileName;isOutput=true]$tfStateFileName"
-  Write-Output "##vso[task.setVariable variable=tfStateFilePath]$tfBackendStateFilePath"
-  Write-Output "##vso[task.setVariable variable=tfStateFilePath;isOutput=true]$tfBackendStateFilePath"
-
 }
 
-if ($uninitializeTerraform) {
+if ($uninitializeTerraform -eq $true) {
   Write-Verbose "[$(getCurrentUTCString)]: Uninitializing Terraform at '$terraformPath'." -Verbose
   uninitializeTFProject -tfPath $terraformPath
 }

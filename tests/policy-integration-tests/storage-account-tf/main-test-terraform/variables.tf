@@ -15,23 +15,3 @@ variable "storage_account_name" {
   type    = string
   default = "sataoaztesttf02"
 }
-
-variable "location" {
-  type    = string
-  default = "Australia East"
-}
-
-variable "vnet_name" {
-  type    = string
-  default = "vnet-ae-dev-network-01"
-}
-
-variable "vnet_resource_group_name" {
-  type    = string
-  default = "rg-dev-network-01"
-}
-
-variable "pe_subnet_name" {
-  type    = string
-  default = "sn-private-endpoint"
-}

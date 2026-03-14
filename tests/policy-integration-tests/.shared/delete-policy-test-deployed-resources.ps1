@@ -12,13 +12,13 @@ COMMENT: - Delete resources deployed by policy integration tests
 =======================================================================
 #>
 #variables
-$deploymentId = $env:bicepDeploymentId -eq '$(deploymentId)' ? $null : $env:deploymentId
-$deploymentTarget = $env:bicepDeploymentTarget -eq '$(deploymentTarget)' ? $null : $env:deploymentTarget
-$deploymentScope = $env:bicepDeploymentScope -eq '$(deploymentScope)' ? $null : $env:deploymentScope
-$additionalResourceGroups = $env:additionalResourceGroups -eq '$(additionalResourceGroups)' ? $null : $env:additionalResourceGroups
-$removeTestResourceGroup = $env:removeTestResourceGroup
-$testSubscriptionId = $env:testSubscriptionId
-$testResourceGroup = $env:testResourceGroup
+$deploymentId = $script:bicepDeploymentId -eq '$(deploymentId)' ? $null : $script:deploymentId
+$deploymentTarget = $script:bicepDeploymentTarget -eq '$(deploymentTarget)' ? $null : $script:deploymentTarget
+$deploymentScope = $script:bicepDeploymentScope -eq '$(deploymentScope)' ? $null : $script:deploymentScope
+$additionalResourceGroups = $script:LocalConfig_additionalResourceGroups -eq '$(additionalResourceGroups)' ? $null : $script:LocalConfig_additionalResourceGroups
+$removeTestResourceGroup = $script:LocalConfig_removeTestResourceGroup
+$testSubscriptionId = $script:testSubscriptionId
+$testResourceGroup = $script:LocalConfig_testResourceGroup
 
 Write-Verbose "Deployment Id: $deploymentId" -verbose
 Write-Verbose "Deployment Target: $deploymentTarget" -verbose

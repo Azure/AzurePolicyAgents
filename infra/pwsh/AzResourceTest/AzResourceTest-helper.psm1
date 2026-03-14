@@ -1427,7 +1427,37 @@ function getTFPlanResult {
     Write-Verbose "Removing temporary JSON file: '$tfPlanJsonFileName'..."
     Remove-Item -Path $tfPlanJsonFilePath -Force
   }
+  Write-Verbose "Uninitializing the Terraform project..."
+  uninitializeTFProject -tfPath $path
   $tfPlanJson
+}
+
+# Function to sanitize the terraform project and uninitialize it
+function uninitializeTFProject {
+  [CmdletBinding()]
+  param (
+    [Parameter(Mandatory = $true, HelpMessage = "Path to the Terraform template directory.")]
+    [ValidateScript({ Test-Path $_ -PathType Container })]
+    [string]$tfPath
+  )
+
+  #Check if the the terraform project is initialized
+  if (-not (isTFInitialized -path $tfPath)) {
+    Write-Verbose "Terraform project at '$tfPath' is not initialized. No need to uninitialize."
+    return
+  } else {
+    Write-Verbose "Terraform project at '$tfPath' is initialized. Proceeding to uninitialize."
+    $tfLockFile = Join-Path -Path $tfPath -ChildPath ".terraform.lock.hcl"
+    $tfChildDir = Join-Path -Path $tfPath -ChildPath ".terraform"
+    if ( Test-Path -Path $tfLockFile -PathType Leaf) {
+      Write-Verbose "[$(getCurrentUTCString)]: Removing Terraform lock file at '$tfLockFile'."
+      Remove-Item -Path $tfLockFile -Force | Out-Null
+    }
+    if (Test-Path -Path $tfChildDir -PathType Container) {
+      Write-Verbose "[$(getCurrentUTCString)]: Removing Terraform child directory at '$tfChildDir'."
+      Remove-Item -Path $tfChildDir -Recurse -Force | Out-Null
+    }
+  }
 }
 
 #function to check AZ API TF Plan result against the policy restrictions API

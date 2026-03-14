@@ -9,7 +9,7 @@ Function getDeploymentOperation {
     [Parameter(Mandatory = $true)]
     [string]$apiToken
   )
-  $url = "https://management.azure.com/$deploymentId/operations?api-version=2021-04-01"
+  $url = "https://management.azure.com$deploymentId/operations?api-version=2021-04-01"
   $headers = @{
     'Authorization' = "Bearer $apiToken"
     'Content-Type'  = 'application/json'

@@ -1,11 +1,11 @@
 resource "azapi_resource" "rg" {
-  type     = "Microsoft.Resources/resourceGroups@2024-07-01"
+  type     = "Microsoft.Resources/resourceGroups@2025-04-01"
   name     = var.resource_group_name
   location = var.location
 }
 
 resource "azapi_resource" "storage_account" {
-  type      = "Microsoft.Storage/storageAccounts@2024-01-01"
+  type      = "Microsoft.Storage/storageAccounts@2025-06-01"
   name      = var.storage_account_name
   location  = var.location
   parent_id = azapi_resource.rg.id

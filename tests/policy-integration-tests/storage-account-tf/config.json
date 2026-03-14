@@ -4,9 +4,15 @@
     "/providers/Microsoft.Management/managementGroups/CONTOSO-DEV/providers/Microsoft.Authorization/policyAssignments/pa-d-pedns",
     "/providers/Microsoft.Management/managementGroups/CONTOSO-DEV/providers/Microsoft.Authorization/policyAssignments/pa-d-diag-settings"
   ],
+  "testName": "KeyVault",
   "testDelayStartMinutes": 5,
   "storageAccountAssignmentName": "pa-d-storage",
-  "testSubscription": "sub-d-mgmt-01",
+  "testSubscription": "sub-d-lz-corp-01",
   "testManagementGroup": "CONTOSO-DEV",
-  "location": "australiaeast"
+  "location": "australiaeast",
+  "testAuditPoliciesFromDeployedResources": false,
+  "testAppendModifyPolicies": true,
+  "testDeployIfNotExistsPolicies": true,
+  "testDenyPolicies": true,
+  "removeTestResourceGroup": false
 }

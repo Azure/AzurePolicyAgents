@@ -5,5 +5,9 @@
   "testResourceGroup": "rg-ae-d-policy-test-kv-001",
   "testManagementGroup": "CONTOSO-DEV",
   "location": "australiaeast",
+  "testAuditPoliciesFromDeployedResources": true,
+  "testAppendModifyPolicies": true,
+  "testDeployIfNotExistsPolicies": true,
+  "testDenyPolicies": true,
   "removeTestResourceGroup": true
 }

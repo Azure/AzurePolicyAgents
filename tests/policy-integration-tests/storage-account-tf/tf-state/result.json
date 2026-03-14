@@ -1,0 +1,4 @@
+{
+  "terraformDeployment": true,
+  "terraformDeploymentOutputs": "{\"resource_group_id\":{\"value\":\"/subscriptions/dc2d72b7-a48d-45e8-91cc-81193ecc659b/resourceGroups/rg-ae-d-policy-test-storage-002\",\"type\":\"string\"},\"resource_group_name\":{\"value\":\"rg-ae-d-policy-test-storage-002\",\"type\":\"string\"},\"storage_account_blob_pe_id\":{\"value\":\"/subscriptions/dc2d72b7-a48d-45e8-91cc-81193ecc659b/resourceGroups/rg-ae-d-policy-test-storage-002/providers/Microsoft.Network/privateEndpoints/pe-sataoaztesttf03-blob-01\",\"type\":\"string\"},\"storage_account_blob_pe_name\":{\"value\":\"pe-sataoaztesttf03-blob-01\",\"type\":\"string\"},\"storage_account_id\":{\"value\":\"/subscriptions/dc2d72b7-a48d-45e8-91cc-81193ecc659b/resourceGroups/rg-ae-d-policy-test-storage-002/providers/Microsoft.Storage/storageAccounts/sataoaztesttf02\",\"type\":\"string\"},\"storage_account_name\":{\"value\":\"sataoaztesttf02\",\"type\":\"string\"}}"
+}

@@ -42,35 +42,21 @@ $helperFunctionScriptPath = join-path  $PSScriptRoot 'helper-functions.ps1'
 . $helperFunctionScriptPath
 
 $BicepFilePath = Join-Path $TestPath -ChildPath $BicepFileName
-$testConfigFilePath = Join-Path $TestPath -ChildPath $TestConfigFileName
-$resourceGroupApiVersion = '2021-04-01'
-$additionalResourceGroups = @()
-$testGlobalConfigFilePath = join-path $PSScriptRoot 'policy_integration_test_config.jsonc'
-Write-Verbose "Loading Global Test configuration from ''$testGlobalConfigFilePath'..." -verbose
-$globalTestConfig = getTestConfig -TestConfigFilePath $testGlobalConfigFilePath
-$tags = $globalTestConfig.tags | ConvertTo-Json | ConvertFrom-Json -AsHashTable
-Write-Verbose "Loading Local Test configuration from ''$testConfigFilePath'..." -verbose
-$localTestConfig = getTestConfig -TestConfigFilePath $testConfigFilePath
-$testLocation = $localTestConfig.location
-$testSubName = $localTestConfig.testSubscription
-$testSubId = $globalTestConfig.subscriptions.$testSubName.id
 
-if ($localTestConfig.PSObject.properties.name.contains('removeTestResourceGroup')) {
-  $removeTestResourceGroup = $localTestConfig.removeTestResourceGroup
+$additionalResourceGroups = @()
+
+if ($script:LocalConfig_removeTestResourceGroup) {
+  $removeTestResourceGroup = $script:LocalConfig_removeTestResourceGroup
 } else {
   $removeTestResourceGroup = $false
 }
 try {
-  $testResourceGroupName = $localTestConfig.testResourceGroup
+  $testResourceGroupName = $script:LocalConfig_testResourceGroup
 } catch {
   Write-Verbose "Test resource group is not specified." -verbose
 }
 
-if ($localTestConfig.PSObject.properties.name.contains('tagsForResourceGroup')) {
-  $tagsForResourceGroup = $localTestConfig.tagsForResourceGroup
-} else {
-  $tagsForResourceGroup = $false
-}
+Write-Verbose "Test Subscription Id: $script:testSubscriptionId" -verbose
 
 #Create deployment result artifacts
 If ($deploymentResultFilePath -ne '') {
@@ -81,7 +67,7 @@ If ($deploymentResultFilePath -ne '') {
   }
   $deploymentResult = [ordered]@{
     bicepRemoveTestResourceGroup = $removeTestResourceGroup
-    bicepTestSubscriptionId      = $testSubId
+    bicepTestSubscriptionId      = $script:testSubscriptionId
   }
   if ($testResourceGroupName -ne '') {
     $deploymentResult.Add('bicepTestResourceGroup', $testResourceGroupName)
@@ -89,20 +75,8 @@ If ($deploymentResultFilePath -ne '') {
 }
 #create the test resource group if it's specified in the local config file and doesn't exist
 if ($testResourceGroupName) {
-  $testResourceGroupResourceId = '/subscriptions/{0}/resourceGroups/{1}' -f $testSubId, $testResourceGroupName
-  $existingTestResourceGroup = getResourceViaARMAPI -ResourceId $testResourceGroupResourceId -apiVersion $resourceGroupApiVersion
-  if (!($existingTestResourceGroup)) {
-    if ($tagsForResourceGroup) {
-      Write-Output "[$(getCurrentUTCString)]: Resource group '$testResourceGroupName' doesn't exist. Creating the resource group '$testResourceGroupName' with predefined tags..."
-      $testResourceGroup = newResourceGroupViaARMAPI -subscriptionId $testSubId -resourceGroupName $testResourceGroupName -location $testLocation -apiVersion $resourceGroupApiVersion-Tag $tags
-    } else {
-      Write-Output "[$(getCurrentUTCString)]: Resource group '$testResourceGroupName' doesn't exist. Creating the resource group '$testResourceGroupName' without any tags..."
-      $testResourceGroup = newResourceGroupViaARMAPI -subscriptionId $testSubId -resourceGroupName $testResourceGroupName -location $testLocation -apiVersion $resourceGroupApiVersion
-    }
-
-  } else {
-    Write-Output "[$(getCurrentUTCString)]: Resource group '$testResourceGroupName' already exists."
-  }
+  #make sure the resource group exists
+  $resourceGroupId = createResourceGroupIfNotExist -subscriptionId $script:testSubscriptionId -resourceGroupName $testResourceGroupName -location $script:LocalConfig_location -tags $script:GlobalConfig_tags -apiVersion $script:GlobalConfig_resourceGroupApiVersion
 }
 
 # deploy test bicep template if it exists
@@ -124,38 +98,38 @@ if (Test-path $BicepFilePath -PathType Leaf) {
   $templateScope = getTemplateScope -BicepFilePath $BicepFilePath
 
 
-  Write-Verbose "[$(getCurrentUTCString)]: Test Template Deployment Subscription Name: $testSubName" -verbose
-  Write-Verbose "[$(getCurrentUTCString)]: Test Template Deployment Subscription Id: $testSubId" -verbose
-  Write-Verbose "[$(getCurrentUTCString)]: Test Template Deployment Location: $testLocation" -verbose
+  Write-Verbose "[$(getCurrentUTCString)]: Test Template Deployment Subscription Name: $script:LocalConfig_testSubscription" -verbose
+  Write-Verbose "[$(getCurrentUTCString)]: Test Template Deployment Subscription Id: $script:testSubscriptionId" -verbose
+  Write-Verbose "[$(getCurrentUTCString)]: Test Template Deployment Location: $script:LocalConfig_location" -verbose
   if ($templateScope -ieq 'resourcegroup') {
-    $testResourceGroupName = $localTestConfig.testResourceGroup
+    $testResourceGroupName = $script:LocalConfig_testResourceGroup
     Write-Verbose "[$(getCurrentUTCString)]: Test Template Deployment Resource Group Name: $testResourceGroupName" -verbose
   }
 
-  $deploymentPrefix = $globalTestConfig.deploymentPrefix
+
   $templateName = (Split-Path -Path (Split-Path $BicepFilePath -Parent) -LeafBase).replace('-', '')
   $randomString = -join ((65..90) + (97..122) | Get-Random -Count 5 | % { [char]$_ })
-  $deploymentNamePrefix = "$($deploymentPrefix)-$($templateName)-$($randomString)-$($BuildNumber)"
+  $deploymentNamePrefix = "$($script:GlobalConfig_deploymentPrefix)-$($templateName)-$($randomString)-$($BuildNumber)"
 
   #Create additional resource groups if specified in the test config
-  if ($localTestConfig.additionalResourceGroups) {
+  if ($script:LocalConfig_additionalResourceGroups) {
     Write-Output "[$(getCurrentUTCString)]: Creating additional resource groups..."
 
-    $rgReferenceNames = ($localTestConfig.additionalResourceGroups.PSObject.Properties | where-object { $_.MemberType -ieq 'noteproperty' }).name
+    $rgReferenceNames = ($script:LocalConfig_additionalResourceGroups.PSObject.Properties | where-object { $_.MemberType -ieq 'noteproperty' }).name
     foreach ($rg in $rgReferenceNames) {
-      $resourceGroupName = ($localTestConfig.additionalResourceGroups.$rg).resourceGroup
-      $subscriptionName = ($localTestConfig.additionalResourceGroups.$rg).subscription
-      $subscriptionId = $globalTestConfig.subscriptions.$subscriptionName.id
+      $resourceGroupName = ($script:LocalConfig_additionalResourceGroups.$rg).resourceGroup
+      $subscriptionName = ($script:LocalConfig_additionalResourceGroups.$rg).subscription
+      $subscriptionId = $script:GlobalConfig_subscriptions.$subscriptionName.id
       $rgResourceId = '/subscriptions/{0}/resourceGroups/{1}' -f $subscriptionId, $resourceGroupName
       Write-Verbose "Checking if the resource group '$rgResourceId' exists..." -verbose
-      $existingRg = getResourceViaARMAPI -ResourceId $rgResourceId -apiVersion $resourceGroupApiVersion
+      $existingRg = getResourceViaARMAPI -ResourceId $rgResourceId -apiVersion $script:GlobalConfig_resourceGroupApiVersion
       if ($existingRg) {
         Write-Verbose "[$(getCurrentUTCString)]: Resource group '$rgResourceId' already exists. Skipping creation." -verbose
         $additionalResourceGroups += $existingRg.id
       } else {
-        Write-Output "[$(getCurrentUTCString)]: Resource group '$rgResourceId' doesn't exist. Creating in location '$testLocation'..."
+        Write-Output "[$(getCurrentUTCString)]: Resource group '$rgResourceId' doesn't exist. Creating in location '$script:LocalConfig_location'..."
         #create the resource group using ARM REST API directly so we don't have to change the subscription in the Az context
-        $additionalResourceGroups += newResourceGroupViaARMAPI -subscriptionId $subscriptionId -resourceGroupName $resourceGroupName -location $testLocation -apiVersion $resourceGroupApiVersion
+        $additionalResourceGroups += newResourceGroupViaARMAPI -subscriptionId $subscriptionId -resourceGroupName $resourceGroupName -location $script:LocalConfig_location -apiVersion $script:GlobalConfig_resourceGroupApiVersion
       }
     }
     Write-Verbose "[$(getCurrentUTCString)]: Additional resource groups:" -verbose
@@ -176,11 +150,11 @@ if (Test-path $BicepFilePath -PathType Leaf) {
   }
 
   Write-Verbose "[$(getCurrentUTCString)]: Deploying the bicep template..." -verbose
-  $subscription = Get-AzSubscription -SubscriptionId $testSubId
-  Set-AzContext -SubscriptionId $testSubId
+  $subscription = Get-AzSubscription -SubscriptionId $script:testSubscriptionId
+  Set-AzContext -SubscriptionId $script:testSubscriptionId
   switch ($templateScope) {
     'subscription' {
-      $deployParams.Add('location', $testLocation)
+      $deployParams.Add('location', $script:LocalConfig_location)
       $deploymentJob = New-AzDeployment @deployParams
       $deploymentTarget = '/subscriptions/{0}' -f $subscription.Id
     }
@@ -240,7 +214,7 @@ if (Test-path $BicepFilePath -PathType Leaf) {
   #retrieve deployment Id
   If ($templateScope -ieq 'subscription') {
     $deploymentId = $deployResult.Id
-    $deploymentId = '/subscriptions/{0}/providers/Microsoft.Resources/deployments/{1}' -f $testSubId, $deploymentName
+    $deploymentId = '/subscriptions/{0}/providers/Microsoft.Resources/deployments/{1}' -f $script:testSubscriptionId, $deploymentName
   } else {
     $resourceGroupId = (Get-AzResourceGroup -Name $testResourceGroupName).ResourceId
     $deploymentId = '{0}/providers/Microsoft.Resources/deployments/{1}' -f $resourceGroupId, $deploymentName
@@ -251,10 +225,10 @@ if (Test-path $BicepFilePath -PathType Leaf) {
   Write-Output "[$(getCurrentUTCString)]: Deployment Provisioning State: $provisioningState"
 
   #create environment variables for deployment
-  $env:bicepDeploymentName = $deploymentName
-  $env:provisioningState = $provisioningState
-  $env:bicepDeploymentId = $deploymentId
-  $env:bicepDeploymentTarget = $deploymentTarget
+  $script:bicepDeploymentName = $deploymentName
+  $script:bicepProvisioningState = $provisioningState
+  $script:bicepDeploymentId = $deploymentId
+  $script:deploymentTarget = $deploymentTarget
 
   If ($deploymentResultFilePath -ne '') {
     #save the deployment name and provisioning state to the deployment result file
@@ -292,7 +266,7 @@ if (Test-path $BicepFilePath -PathType Leaf) {
   Write-Output "The bicep file '$BicepFilePath' does not exist. Deployment skipped."
 }
 #Always create deploymentOutputs and deploymentId environment variable even if there are no outputs So it can be used in the next steps
-$env:bicepDeploymentOutputs = $deploymentOutputs
+$script:bicepDeploymentOutputs = $deploymentOutputs
 
 #Save deployment result to file if specified
 If ($deploymentResultFilePath -ne '') {

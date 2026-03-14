@@ -34,13 +34,13 @@ resource actionGroup 'Microsoft.Insights/actionGroups@2024-10-01-preview' = {
     smsReceivers: [
       {
         name: 'sms1'
-        countryCode: '1' //violate policy MON-002
-        phoneNumber: '2345678901' //violate policy MON-002
+        countryCode: '7' //Country code for Russia, should violate policy MON-002
+        phoneNumber: '2345678901'
       }
     ]
     emailReceivers: [
       {
-        emailAddress: 'test.user1@outlook.com' //voilate policy MON-001
+        emailAddress: 'test.user1@outlook.com' //violate policy MON-001
         name: 'email1'
         useCommonAlertSchema: true
       }
