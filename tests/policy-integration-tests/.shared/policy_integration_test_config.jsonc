@@ -33,25 +33,25 @@
   //Subscriptions and details about the each subscription used in the tests. This is needed to provide the necessary information for the tests to create and manage resources in the correct subscriptions and resource groups.
   "subscriptions": {
     "sub-d-mgmt-01": {
-      "id": "f27ab1cb-9c1a-4bdb-9e18-bb11ec9205db",
+      "id": "af124f89-cfe9-46c7-a5f1-dcd051623554",
       "networkResourceGroup": "rg-ae-d-net-spoke",
       "vNet": "vnet-ae-d-mgmt-01",
       "peSubnet": "sn-private-endpoint",
       "resourceSubnet": "sn-vm"
     },
     "sub-d-connectivity-01": {
-      "id": "3cea5943-a7f2-4991-ba22-19e240671e63",
+      "id": "33d07b04-21a5-4e98-a38c-a355ff6b1e32",
       "networkResourceGroup": "rg-ae-d-net-hub"
     },
     "sub-d-lz-corp-01": {
-      "id": "dc2d72b7-a48d-45e8-91cc-81193ecc659b",
+      "id": "555d629d-907b-4877-8075-bb45d49e7a04",
       "networkResourceGroup": "rg-ae-d-net-spoke",
       "vNet": "vnet-ae-d-lz-corp-01",
       "peSubnet": "sn-private-endpoint",
       "resourceSubnet": "sn-vm"
     },
     "sub-d-lz-online-01": {
-      "id": "f793e6e7-9219-4d57-8582-89bb7be49bba",
+      "id": "b4528a7f-d540-43e6-9796-ae02c408ce59",
       "networkResourceGroup": "rg-ae-d-net-spoke",
       "vNet": "vnet-ae-d-lz-online-01",
       "peSubnet": "sn-private-endpoint",

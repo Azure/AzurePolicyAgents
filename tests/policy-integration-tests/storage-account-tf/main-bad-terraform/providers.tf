@@ -9,5 +9,5 @@ terraform {
 }
 # Configure the Microsoft Azure Provider
 provider "azapi" {
-  subscription_id = "dc2d72b7-a48d-45e8-91cc-81193ecc659b"
+  subscription_id = "555d629d-907b-4877-8075-bb45d49e7a04"
 }

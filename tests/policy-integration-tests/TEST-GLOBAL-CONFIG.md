@@ -46,7 +46,7 @@ Each subscription entry within the `subscriptions` must contain the following ma
 
 | Name | Expected Data Type | Description | Example |
 | :--- | :----------------- | :---------- | :------ |
-| `id` | String | The subscription ID. | `f27ab1cb-9c1a-4bdb-9e18-bb11ec9205db` |
+| `id` | String | The subscription ID. | `af124f89-cfe9-46c7-a5f1-dcd051623554` |
 
 To support the sample test cases provided in this repository, the following properties are also defined for the subscriptions:
 
