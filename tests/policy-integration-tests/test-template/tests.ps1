@@ -1,4 +1,4 @@
-#region generic sections for all tests
+#region generic sections for all tests - do not modify
 #Requires -Modules Az.Accounts, Az.PolicyInsights, Az.Resources
 #Requires -Version 7.0
 
@@ -39,74 +39,21 @@ The following script scoped variables are expected to be set before running the 
 - $script:terraformComplyDirectoryPath: the directory path for the Terraform configuration used for validate against Policy Violation API that expected to comply with the policy, which should be set to "$PSScriptRoot\$script:GlobalConfig_terraformComplyDirectoryName" by the initiation script (initiate-test.ps1).
 
 #>
+
 #endregion
 
-#region test specific configuration and tests
-$deploymentOutputsJson = $script:terraformDeploymentOutputs | ConvertFrom-Json -Depth 99
-$storageAccountId = $deploymentOutputsJson.storage_account_id.value
-#$storageAccountBlobPeId = $deploymentOutputsJson.storage_account_blob_pe_id.value
+#region defining tests
+<#
+The following policy definitions are tested:.
+  - List the policy definitions being tested here.
+#>
 
-$storagePolicyAssignmentId = '/providers/Microsoft.Management/managementGroups/{0}/providers/Microsoft.Authorization/policyAssignments/{1}' -f $script:LocalConfig_testManagementGroup, $script:LocalConfig_assignmentName
-
-$diagnosticSettingsIdSuffix = '/providers/microsoft.insights/diagnosticSettings/setByPolicyLAW'
-$diagnosticSettingsId = "{0}{1}" -f $storageAccountId, $diagnosticSettingsIdSuffix
-$script:token = $(az account get-access-token --resource 'https://management.azure.com/' | convertfrom-json).accessToken
-
-$violatingPolicies = @(
-  @{
-    policyAssignmentId          = $storagePolicyAssignmentId
-    policyDefinitionReferenceId = 'STG-006'
-    resourceReference           = 'azapi_resource.storage_account'
-    policyEffect                = 'Deny'
-  }
-  @{
-    policyAssignmentId          = $storagePolicyAssignmentId
-    policyDefinitionReferenceId = 'STG-007'
-    resourceReference           = 'azapi_resource.storage_account'
-    policyEffect                = 'Audit'
-  }
-  @{
-    policyAssignmentId          = $storagePolicyAssignmentId
-    policyDefinitionReferenceId = 'STG-009'
-    resourceReference           = 'azapi_resource.storage_account'
-    policyEffect                = 'Deny'
-  }
-  @{
-    policyAssignmentId          = $storagePolicyAssignmentId
-    policyDefinitionReferenceId = 'STG-010'
-    resourceReference           = 'azapi_resource.storage_account'
-    policyEffect                = 'Deny'
-  }
-  @{
-    policyAssignmentId          = $storagePolicyAssignmentId
-    policyDefinitionReferenceId = 'STG-012'
-    resourceReference           = 'azapi_resource.storage_account'
-    policyEffect                = 'Deny'
-  }
-  @{
-    policyAssignmentId          = $storagePolicyAssignmentId
-    policyDefinitionReferenceId = 'STG-008'
-    resourceReference           = 'azapi_resource.storage_account'
-    policyEffect                = 'Deny'
-  }
-
-)
 #define tests
 $tests = @()
 
-#Modify / Append Policies
-#TAG-010 all-inherit-tag-from-rg (dataclass)
-$tests += New-ARTPropertyCountTestConfig 'TAG-010: Resource Should have dataclass tag' $script:token $storageAccountId 'tags.dataclass' 'equals' 1
+#endregion
 
-#TAG-011 all-inherit-tag-from-rg (owner)
-$tests += New-ARTPropertyCountTestConfig 'TAG-011: Resource Should have owner tag' $script:token $storageAccountId 'tags.owner' 'equals' 1
-
-$tests += New-ARTResourceExistenceTestConfig 'DS-052: Diagnostic Settings Must Be Configured' $script:token $diagnosticSettingsId 'exists' $script:GlobalConfig_diagnosticSettingsAPIVersion
-
-#Deny policies
-$tests += New-ARTTerraformPolicyRestrictionTestConfig -testName 'Violating Audit and Deny Policies should be detected from test Terraform template' -token $script:token -terraformDirectory $script:terraformViolateDirectoryPath -policyViolation $violatingPolicies
-
-#Invoke tests
+#region Invoke tests - do not modify
 $params = @{
   tests         = $tests
   testTitle     = $script:testTitle
@@ -116,9 +63,10 @@ $params = @{
   OutputFormat  = $script:GlobalConfig_testOutputFormat
 }
 Test-ARTResourceConfiguration @params
+
 #endregion
 
-#region post-test clean up. do not modify
+#region post-test clean up. - do not modify
 Write-Output "Starting post-test cleanup."
 . ../.shared/post-test-cleanup.ps1
 Write-Output "$script:testTitle test execution completed."

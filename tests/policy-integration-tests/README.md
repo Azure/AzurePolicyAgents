@@ -39,9 +39,9 @@ The `AzResourceTest` PowerShell module is a PowerShell module that can be used t
 
 It covers the following testing scenarios:
 
-- Azure Resource configurations via Azure Resource Graph(ARG)
-- Azure Resource existence via Azure Resource Graph(ARG) or relevant Azure Resource Provider (RP)
-- Resource policy compliance via Azure Resource Graph(ARG)
+- Azure Resource configurations via Azure Resource Graph (ARG)
+- Azure Resource existence via Azure Resource Graph (ARG) or relevant Azure Resource Provider (RP)
+- Resource policy compliance via Azure Resource Graph (ARG)
 - `Deny` Policy violation via ARM What-If API
 - Terraform plan validation (AzAPI provider only) via Azure Policy Restriction API.
 
@@ -57,10 +57,10 @@ The following commands are provided in the `AzResourceTest` module:
 | `New-ARTPolicyStateTestConfig` | Create a new instance of the PolicyStateTestConfig object. This object is used to define a test that checks the compliance state of a policy for an existing resource. | `Audit` and `AuditIfNotExists` effects tested by querying Policy Compliance State of an existing resource via Azure Resource Graph. |
 | `New-ARTWhatIfDeploymentTestConfig` | Create a new instance of the WhatIfDeploymentTestConfig object. This object is used to define a test that checks the What-If template validation for a given Bicep or ARM template. | `Deny` effects tested via ARM What-If API by passing a Bicep or ARM template with policy-violating configurations to the ARM What-If API. |
 | `New-ARTResourceExistenceTestConfig` | Create a new instance of the ResourceExistenceTestConfig object. This object is used to define a test that checks the existence of a resource. | `DeployIfNotExists` effects are tested by querying the existence of the resource via Azure Resource Graph or Azure Resource Provider API. |
-| `New-ARTManualWhatIfTestConfig` | Create a new instance of the ManualWhatIfTestConfig object. This object is used to define a test that checks the What-If validation result that is obtained from an external Azure Resource Manager REST API response. | `Deny` effects tested via ARM What-If API by passing the What-If API response that is obtained externally. This is useful when the testing resource updates that are not allowed using Bicep or ARM templates (i.e. Subscription tags update). |
+| `New-ARTManualWhatIfTestConfig` | Create a new instance of the ManualWhatIfTestConfig object. This object is used to define a test that checks the What-If validation result that is obtained from an external Azure Resource Manager REST API response. | `Deny` effects tested via ARM What-If API by passing the What-If API response that is obtained externally. This is useful when testing resource updates that are not allowed using Bicep or ARM templates (i.e. Subscription tags update). |
 | `New-ARTTerraformPolicyRestrictionTestConfig` | Create a new instance of the TerraformPolicyRestrictionTestConfig object. This object is used to define a test that checks the resource configuration from Terraform plan result against the Azure Policy Restriction REST API for a given resource. | `Audit` and `Deny` effects using the Terraform plan result (AzAPI provider only) tested via Azure Policy Restriction API. |
 | `New-ARTArmPolicyRestrictionTestConfig` | Create a new instance of the ArmPolicyRestrictionTestConfig object. This object is used to define a test that checks the ARM resource configuration against the Azure Policy Restriction REST API for a given resource. | `Audit` and `Deny` effects using the ARM resource configuration tested via Azure Policy Restriction API. |
-| `Get-ARTResourceConfiguration` | Get the configuration of an existing Azure resource via Azure Resource Graph search. | This is a helper function can be used to examine the configuration of an existing resource when developing test cases. |
+| `Get-ARTResourceConfiguration` | Get the configuration of an existing Azure resource via Azure Resource Graph search. | This is a helper function that can be used to examine the configuration of an existing resource when developing test cases. |
 
 ## Testing Different Policy Effects
 
@@ -228,7 +228,7 @@ $violatingPolicies = @(
 )
 $tests += New-ARTTerraformPolicyRestrictionTestConfig 'Storage Account should violate deny policies' $token $terraformDirectory  $violatingPolicies
 
-#Above command create a new instance of the TerraformPolicyRestrictionTestConfig object by passing required parameters in the correct order "testName", "token", "terraformDirectory" and "policyViolation".
+#Above command creates a new instance of the TerraformPolicyRestrictionTestConfig object by passing required parameters in the correct order "testName", "token", "terraformDirectory" and "policyViolation".
 ```
 
 ### Test Execution
@@ -253,12 +253,30 @@ Test-ARTResourceConfiguration @params
 The following example test cases can be found here:
 
 | Test Case Name | Tested Azure Resources | Policy Effects | Comment |
-| :------------- | :---------- | :------- | :------------- | :------ |
-| [key-vault](./key-vault) | Azure Key Vault | `Deny`, `Audit`, `Modify`, `DeployIfNotExists` |Reference for testing Key Vault related policies using a set of Bicep templates. |
+| :------------- | :--------------------- | :------------- | :------ |
+| [key-vault](./key-vault) | Azure Key Vault | `Deny`, `Audit`, `Modify`, `DeployIfNotExists` | Reference for testing Key Vault related policies using a set of Bicep templates. |
 | [monitor](./monitor) | Azure Monitor resources such as Log Analytics Workspace and Action Group, etc. | `Deny`, `Audit`, `DeployIfNotExists` | Reference for testing Azure Monitor related policies using a set of Bicep templates, as well as using Azure Policy Restriction API. |
-| [storage-accoun-tf](./storage-account-tf) | Azure Storage Account | `Deny`, `Audit`, `Modify`, `DeployIfNotExists`  | Reference for testing Storage Account related policies using Terraform (using Azure Policy Restriction API). |
-| [tags](./tags) | Subscription and Resource Group tags | `Deny`, `Audit`, `Append` | Reference for testing subscription and resource group tagging policies using ARM templates and manual What-If API response from resource update request (updating tags of an existing subscription). |
+| [storage-account-tf](./storage-account-tf) | Azure Storage Account | `Deny`, `Audit`, `Modify`, `DeployIfNotExists`  | Reference for testing Storage Account related policies using Terraform (using the Terraform `AzAPI` provider and Azure Policy Restriction API). |
+| [tags](./tags) | Subscription and Resource Group tags | `Deny`, `Modify` | Reference for testing subscription and resource group tagging policies using Bicep templates and manual What-If API response from resource update request (updating tags of an existing subscription). |
+
+## Get Started
+
+To get started with the policy integration tests:
+
+1. Refer to the [Test Template for Azure Policy Integration Tests](./test-template/README.md) which provides a step-by-step guide on how to create your own test case using the provided test template.
+2. Refer to the [Policy Integration Tests - Global Configuration](./TEST-GLOBAL-CONFIG.md) document to understand the global configuration settings that are required for the tests and to ensure your test case is properly configured.
+3. Refer to the [Policy Integration Tests - Local Configuration](./TEST-LOCAL-CONFIG.md) document to understand the configuration variables that are required for defining your test case.
 
 ## Limitations
 
-The AzResourceTest module does not support testing policies with [resource provider modes](https://learn.microsoft.com/en-us/azure/governance/policy/concepts/definition-structure-basics#resource-provider-modes).
+The `AzResourceTest` module does not support testing policies with [resource provider modes](https://learn.microsoft.com/en-us/azure/governance/policy/concepts/definition-structure-basics#resource-provider-modes).
+
+## References
+
+The `AzResourceTest` module uses the following Azure APIs:
+
+- [Azure Resource Manager Deployment What-If](https://learn.microsoft.com/rest/api/resources/deployments/what-if?view=rest-resources-2025-04-01&tabs=HTTP)
+- [Azure Resource Graph](https://learn.microsoft.com/rest/api/azureresourcegraph/resourcegraph/resources/resources?view=rest-azureresourcegraph-resourcegraph-2024-04-01&tabs=HTTP)
+- [Azure Resource Manager Resource GET](https://learn.microsoft.com/rest/api/resources/resources/get?view=rest-resources-2021-04-01)
+- [Azure Policy Insights Policy State](https://learn.microsoft.com/rest/api/policyinsights/policy-states?view=rest-policyinsights-2024-10-01)
+- [Azure Policy Restriction](https://learn.microsoft.com/rest/api/policyinsights/policy-restrictions?view=rest-policyinsights-2024-10-01)

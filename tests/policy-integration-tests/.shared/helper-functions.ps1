@@ -1,5 +1,5 @@
 function Get-GitRoot {
-  $gitRootDir = Invoke-expression 'git rev-parse --show-toplevel 2>&1' -ErrorAction SilentlyContinue
+  $gitRootDir = & git rev-parse --show-toplevel 2>&1
   if (Test-Path $gitRootDir) {
     Convert-Path $gitRootDir
   }
@@ -70,12 +70,13 @@ function updateAzResourceTags {
     } | ConvertTo-Json -Depth 10
     try {
       $revertBackResponse = Invoke-WebRequest -Uri $uri -Method PUT -Headers $headers -Body $revertBackBody
+      Write-Verbose "Revert back response status code: $($revertBackResponse.StatusCode)" -verbose
     } Catch {
       Throw $_.Exception
     }
   }
   Write-Verbose "Tag Update response status code: $($response.StatusCode)" -Verbose
-  Write-Verbose "Tag Update response content: '$($response.content)" -verbose
+  Write-Verbose "Tag Update response content: '$($response.content)'" -Verbose
   $response
 }
 
@@ -183,11 +184,14 @@ function convertBicepToArm {
     [Parameter(Mandatory = $true, HelpMessage = 'Specify the Bicep file path.')]
     [ValidateScript({ Test-Path $_ -PathType Leaf })][string]$BicepFilePath
   )
-  $armTemplate = invoke-expression "bicep build $bicepFilePath --stdout | ConvertFrom-Json -depth 99" -ErrorVariable bicepBuildError -ErrorAction SilentlyContinue
-
-  if ($bicepBuildError) {
-    Throw "Failed to convert the bicep file to ARM template. Error: $($bicepBuildError.Exception.Message)"
-    exit -1
+  try {
+    $bicepOutput = & bicep build $BicepFilePath --stdout 2>&1
+    if ($LASTEXITCODE -ne 0) {
+      Throw "Failed to convert the bicep file to ARM template. Error: $bicepOutput"
+    }
+    $armTemplate = $bicepOutput | ConvertFrom-Json -Depth 99
+  } catch {
+    Throw "Failed to convert the bicep file to ARM template. Error: $($_.Exception.Message)"
   }
 
   $armTemplate
@@ -195,6 +199,7 @@ function convertBicepToArm {
 
 #this function validates the bicep file for the Bicep templates used by Policy Integration tests
 function validateBicep {
+  [OutputType([bool])]
   [CmdletBinding()]
   Param (
     [Parameter(Mandatory = $true, HelpMessage = 'Specify the Bicep file path.')]
@@ -328,7 +333,7 @@ function postDeploymentTasks {
       $waitTimeMinute = $waitTimeForDeployIfNotExistsPoliciesAfterDeployment
     }
   }
-  Write-Verbose "Calculated wait time for policies to be effective after deployment: $waitTimeMinute minutes." -Verbose
+  Write-Verbose "[$(getCurrentUTCString)]: Calculated wait time for policies to be effective after deployment: $waitTimeMinute minutes." -Verbose
   $testStartTime = $deploymentCompletionTime.AddMinutes($waitTimeMinute)
 
   if ($testAuditPoliciesFromDeployedResources) {
@@ -351,9 +356,9 @@ function postDeploymentTasks {
   if ($currentTime -lt $testStartTime) {
     $waitTimeSpan = New-TimeSpan -Start $currentTime -End $testStartTime
     $totalSecondsToWait = [math]::Ceiling($waitTimeSpan.TotalSeconds)
-    Write-Output "Waiting for $totalSecondsToWait seconds for append, modify and deployIfNotExists policies to be effective before starting tests."
+    Write-Output "[$(getCurrentUTCString)]: Waiting for $totalSecondsToWait seconds for all in-scope policies to be effective before starting tests."
     Start-Sleep -Seconds $totalSecondsToWait
   } else {
-    Write-Output "Current time has passed the calculated test start time. Starting tests now."
+    Write-Output "[$(getCurrentUTCString)]: Current time has passed the calculated test start time. Starting tests now."
   }
 }

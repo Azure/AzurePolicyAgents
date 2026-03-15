@@ -12,9 +12,9 @@ COMMENT: - Delete resources deployed by policy integration tests
 =======================================================================
 #>
 #variables
-$deploymentId = $script:bicepDeploymentId -eq '$(deploymentId)' ? $null : $script:deploymentId
-$deploymentTarget = $script:bicepDeploymentTarget -eq '$(deploymentTarget)' ? $null : $script:deploymentTarget
-$deploymentScope = $script:bicepDeploymentScope -eq '$(deploymentScope)' ? $null : $script:deploymentScope
+$deploymentId = $script:bicepDeploymentId
+$deploymentTarget = $script:deploymentTarget
+$deploymentScope = $script:bicepDeploymentScope
 $additionalResourceGroups = $script:LocalConfig_additionalResourceGroups -eq '$(additionalResourceGroups)' ? $null : $script:LocalConfig_additionalResourceGroups
 $removeTestResourceGroup = $script:LocalConfig_removeTestResourceGroup
 $testSubscriptionId = $script:testSubscriptionId
@@ -85,7 +85,7 @@ if ($deploymentId.length -gt 0) {
 
 If ($removeTestResourceGroup -eq 'true') {
   Write-Verbose "The Local Configuration explicitly specified to remove the test resource group." -verbose
-  if ($deploymentScope -ieq 'resourceGroup' -or $null -eq $deploymentScope) {
+  if ($deploymentScope -ieq 'resourceGroup') {
     if ($null -ne $deploymentTarget) {
       Write-Verbose "Removing test resource group '$deploymentTarget'..." -verbose
       removeAzureResource -resourceId $deploymentTarget -apiVersion $resourceGroupApiVersion

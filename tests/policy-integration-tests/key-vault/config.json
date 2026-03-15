@@ -1,6 +1,6 @@
 {
   "testName": "KeyVault",
-  "keyVaultAssignmentName": "pa-d-key-vault",
+  "assignmentName": "pa-d-key-vault",
   "testSubscription": "sub-d-lz-corp-01",
   "testResourceGroup": "rg-ae-d-policy-test-kv-001",
   "testManagementGroup": "CONTOSO-DEV",

@@ -1,12 +1,7 @@
 {
-  "policyAssignmentIds": [
-    "/providers/Microsoft.Management/managementGroups/CONTOSO-DEV/providers/Microsoft.Authorization/policyAssignments/pa-d-storage",
-    "/providers/Microsoft.Management/managementGroups/CONTOSO-DEV/providers/Microsoft.Authorization/policyAssignments/pa-d-pedns",
-    "/providers/Microsoft.Management/managementGroups/CONTOSO-DEV/providers/Microsoft.Authorization/policyAssignments/pa-d-diag-settings"
-  ],
-  "testName": "KeyVault",
+  "testName": "StorageAccount",
   "testDelayStartMinutes": 5,
-  "storageAccountAssignmentName": "pa-d-storage",
+  "assignmentName": "pa-d-storage",
   "testSubscription": "sub-d-lz-corp-01",
   "testManagementGroup": "CONTOSO-DEV",
   "location": "australiaeast",

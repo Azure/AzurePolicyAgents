@@ -137,14 +137,36 @@ if ($tfAction -eq 'apply') {
   $script:terraformDeploymentOutputs = $tfState.outputs | ConvertTo-Json -depth 99 -EnumsAsString -EscapeHandling 'EscapeNonAscii' -Compress
   createResultFile -fileName $deploymentResultFileName -directory $tfBackendStateFileDirectory -terraformDeployment $true -provisioningState $provisioningState -deploymentOutputs $script:terraformDeploymentOutputs
   $tfStateFile = Get-item -Path $tfBackendStateFilePath -ErrorAction Stop
-  $tfStateFileDir = $tfStateFile.DirectoryName
-
   $tfStateFileName = $tfStateFile.Name
 }
 
 if ($uninitializeTerraform -eq $true) {
   Write-Verbose "[$(getCurrentUTCString)]: Uninitializing Terraform at '$terraformPath'." -Verbose
   uninitializeTFProject -tfPath $terraformPath
+}
+
+#if destroy, delete the state file
+if ($tfAction -eq 'destroy') {
+  if (Test-Path -Path $tfBackendStateFilePath -PathType Leaf) {
+    Write-Verbose "[$(getCurrentUTCString)]: Removing Terraform state file at '$tfBackendStateFilePath'." -Verbose
+    Remove-Item -Path $tfBackendStateFilePath -Force -ErrorAction SilentlyContinue
+  }
+  $tfStateBackupFileName = "$tfStateFileName.backup"
+  $tfStateBackupFilePath = join-path -Path $tfBackendStateFileDirectory -ChildPath $tfStateBackupFileName
+  if (Test-Path -Path $tfStateBackupFilePath -PathType Leaf) {
+    Write-Verbose "[$(getCurrentUTCString)]: Removing Terraform state backup file at '$tfStateBackupFilePath'." -Verbose
+    Remove-Item -Path $tfStateBackupFilePath -Force -ErrorAction SilentlyContinue
+  }
+  $deploymentResultFilePath = Join-Path -Path $tfBackendStateFileDirectory -ChildPath $deploymentResultFileName
+  if (Test-Path $deploymentResultFilePath -PathType Leaf) {
+    Write-Verbose "[$(getCurrentUTCString)]: Removing Terraform deployment result file at '$deploymentResultFilePath'." -Verbose
+    Remove-Item -Path $deploymentResultFilePath -Force -ErrorAction SilentlyContinue
+  }
+  #remove the state file directory if it's empty
+  if ((Get-ChildItem -Path $tfBackendStateFileDirectory -ErrorAction SilentlyContinue | Measure-Object).Count -eq 0) {
+    Write-Verbose "[$(getCurrentUTCString)]: Removing empty Terraform state file directory at '$tfBackendStateFileDirectory'." -Verbose
+    Remove-Item -Path $tfBackendStateFileDirectory -Force -ErrorAction SilentlyContinue
+  }
 }
 
 Write-Output "Done."

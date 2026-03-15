@@ -32,9 +32,7 @@ $localConfigVariableNamePrefix = 'LocalConfig_'
 #check if it's signed in to Azure using Azure PowerShell
 if (Get-AzContext) {
   $script:token = ConvertFrom-SecureString (Get-AzAccessToken -ResourceUrl 'https://management.azure.com/').Token -AsPlainText
-}
-
-if ($(az account show 2>`$null) ) {
+} elseif ($(az account show 2>&1) ) {
   $script:token = (az account get-access-token --resource https://management.azure.com/ --query accessToken -o tsv)
 }
 
@@ -48,7 +46,6 @@ $globalTestConfig = getTestConfig -TestConfigFilePath $globalConfigFilePath
 Write-Output "Loading global config from file: $globalConfigFilePath"
 foreach ($config in $globalTestConfig.GetEnumerator()) {
   $name = $globalConfigVariableNamePrefix + $config.Key
-  $value = $config.Value
   # Set variable
   Set-Variable -Name $name -Value $config.Value -Scope Script
 }
@@ -63,7 +60,6 @@ Write-Output "Loading local config from file: $localConfigFilePath"
 foreach ($config in $localTestConfig.GetEnumerator()) {
 
   $name = $localConfigVariableNamePrefix + $config.Key
-  $value = $config.Value
   # Set variable
   Set-Variable -Name $name -Value $config.Value -Scope Script
 }
@@ -110,6 +106,10 @@ if ($script:LocalConfig_testDenyPolicies -and $script:LocalConfig_testResourceGr
 #Set deployment related outputs to null first
 $script:bicepDeploymentOutputs = $null
 $script:bicepProvisioningState = $null
+$script:bicepDeploymentName = $null
+$script:bicepDeploymentId = $null
+$script:deploymentTarget = $null
+$script:bicepDeploymentScope = $null
 $script:terraformDeploymentOutputs = $null
 $script:terraformProvisioningState = $null
 
@@ -117,12 +117,9 @@ $script:terraformProvisioningState = $null
 if (test-path $(join-path $TestDirectory $script:GlobalConfig_testBicepTemplateName)) {
   Write-Output "Test Bicep template found: $script:GlobalConfig_testBicepTemplateName. Proceeding with deployment."
 
-  . (Join-Path $PSScriptRoot 'deploy-policy-test-bicep-template.ps1') -TestPath $TestDirectory -BicepFileName $script:GlobalConfig_testBicepTemplateName -TestConfigFileName $testLocalConfigFileName
+  . (Join-Path $PSScriptRoot 'deploy-policy-test-bicep-template.ps1') -TestPath $TestDirectory -BicepFileName $script:GlobalConfig_testBicepTemplateName
 
   #capture deployment results
-  $deploymentCompletionTime = Get-Date
-  $testStartTime = $deploymentCompletionTime.AddMinutes($waitTimeMinute)
-  $deploymentOutputs = $script:bicepDeploymentOutputs
   $deploymentProvisioningState = $script:bicepProvisioningState
 
   #check deployment provisioning state. If deployment failed, skip tests since the required resources for testing won't be provisioned.
@@ -138,6 +135,10 @@ if (test-path $(join-path $TestDirectory $script:GlobalConfig_testBicepTemplateN
 
 if (test-path $script:testTerraformDirectoryPath) {
   Write-Output "Test Terraform template found: $script:GlobalConfig_testTerraformDirectoryName. Proceeding with deployment."
+  if (!$(az account show 2>&1) ) {
+    Throw "Azure CLI is not logged in. Please log in to Azure using Azure CLI to deploy Terraform template."
+    Exit 1
+  }
   $tfDeploymentParams = @{
     terraformPath               = $script:testTerraformDirectoryPath
     tfBackendConfigFileName     = $script:GlobalConfig_testTerraformBackendConfigFileName

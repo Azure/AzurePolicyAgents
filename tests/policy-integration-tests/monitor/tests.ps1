@@ -58,7 +58,7 @@ In real world scenario, select one of the two methods as this is for demonstrati
 
 
 $actionGroupName = 'ag01'
-$monitorAssignmentId = '/providers/Microsoft.Management/managementGroups/{0}/providers/Microsoft.Authorization/policyAssignments/{1}' -f $script:LocalConfig_testManagementGroup, $script:LocalConfig_monitorAssignmentName
+$monitorAssignmentId = '/providers/Microsoft.Management/managementGroups/{0}/providers/Microsoft.Authorization/policyAssignments/{1}' -f $script:LocalConfig_testManagementGroup, $script:LocalConfig_assignmentName
 $actionGroupViolatingResourceContent = @{
   properties = @{
     smsReceivers               = @(
@@ -218,24 +218,7 @@ Test-ARTResourceConfiguration @params
 #endregion
 
 #region post-test clean up. do not modify
-# remove terraform deployed resources first
-if ($script:terraformProvisioningState -ieq 'Succeeded') {
-  Write-output "Remove Terraform deployed test resources."
-  $tfDestroyParams = @{
-    terraformPath               = $script:testTerraformDirectoryPath
-    tfBackendConfigFileName     = $script:GlobalConfig_testTerraformBackendConfigFileName
-    tfAction                    = 'destroy'
-    tfBackendStateFileDirectory = $script:terraformBackendStateFileDirectory
-    tfStateFileName             = $script:GlobalConfig_testTerraformStateFileName
-    uninitializeTerraform       = $true
-  }
-  . ../.shared/deploy-destroy-policy-test-terraform-template.ps1 @tfDestroyParams
-}
-
-#determine if deployed resources should be removed based on deployment state and configuration
-if ($script:bicepProvisioningState -ieq 'Succeeded' -or $script:LocalConfig_removeTestResourceGroup -eq 'true') {
-  #delete deployed resources
-  Write-output "Remove Bicep deployed test resources."
-  . ../.shared/delete-policy-test-deployed-resources.ps1
-}
+Write-Output "Starting post-test cleanup."
+. ../.shared/post-test-cleanup.ps1
+Write-Output "$script:testTitle test execution completed."
 #endregion

@@ -1,4 +1,4 @@
-#borrowed from the AVM project
+﻿#borrowed from the AVM project
 #get deployment operation filtered to the 'create' provisioning operation
 Function getDeploymentOperation {
   [CmdletBinding()]
@@ -760,13 +760,7 @@ function removeDeployment {
     [string] $deploymentId,
 
     [Parameter(Mandatory = $false)]
-    [string[]] $RemovalSequence = @(),
-
-    [Parameter(Mandatory = $false)]
-    [int] $SearchRetryLimit = 40,
-
-    [Parameter(Mandatory = $false)]
-    [int] $SearchRetryInterval = 60
+    [string[]] $RemovalSequence = @()
   )
 
   begin {

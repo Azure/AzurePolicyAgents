@@ -19,9 +19,6 @@ Param (
   [Parameter(Mandatory = $false, HelpMessage = 'Specify the Bicep file name.')]
   [string]$BicepFileName = 'main.test.bicep',
 
-  [Parameter(Mandatory = $false, HelpMessage = 'Specify the Test configuration file name.')]
-  [string]$TestConfigFileName = 'config.json',
-
   [parameter(Mandatory = $false, HelpMessage = 'number appended to the ARM deployment name.')]
   [int]$BuildNumber = $(Get-Random -Minimum 100000 -Maximum 999999),
 
@@ -108,7 +105,7 @@ if (Test-path $BicepFilePath -PathType Leaf) {
 
 
   $templateName = (Split-Path -Path (Split-Path $BicepFilePath -Parent) -LeafBase).replace('-', '')
-  $randomString = -join ((65..90) + (97..122) | Get-Random -Count 5 | % { [char]$_ })
+  $randomString = -join ((65..90) + (97..122) | Get-Random -Count 5 | foreach-object { [char]$_ })
   $deploymentNamePrefix = "$($script:GlobalConfig_deploymentPrefix)-$($templateName)-$($randomString)-$($BuildNumber)"
 
   #Create additional resource groups if specified in the test config
@@ -192,7 +189,7 @@ if (Test-path $BicepFilePath -PathType Leaf) {
         }
       }
       Write-Verbose "[$(getCurrentUTCString)]: Wait for the $templateScope scope deployment job to complete..." -verbose
-      $wait = $deploymentJob | Wait-Job
+      $deploymentJob | Wait-Job | out-null
       $deployResult = $deploymentJob | Receive-Job
       $provisioningState = $deployResult.ProvisioningState
       if ($provisioningState -ieq 'succeeded') {
@@ -224,11 +221,12 @@ if (Test-path $BicepFilePath -PathType Leaf) {
   Write-Output "[$(getCurrentUTCString)]: Deployment Name: $deploymentName"
   Write-Output "[$(getCurrentUTCString)]: Deployment Provisioning State: $provisioningState"
 
-  #create environment variables for deployment
+  #create variables for deployment
   $script:bicepDeploymentName = $deploymentName
   $script:bicepProvisioningState = $provisioningState
   $script:bicepDeploymentId = $deploymentId
   $script:deploymentTarget = $deploymentTarget
+  $script:bicepDeploymentScope = $templateScope
 
   If ($deploymentResultFilePath -ne '') {
     #save the deployment name and provisioning state to the deployment result file
