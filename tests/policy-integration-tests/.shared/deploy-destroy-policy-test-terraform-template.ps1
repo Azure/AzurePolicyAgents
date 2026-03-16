@@ -72,19 +72,7 @@ function createResultFile {
 #Check if the terraform directory exists
 if (-not (Test-Path -Path $terraformPath )) {
   Write-Output "The specified Terraform path '$terraformPath' does not exist. 'Terraform $tfAction' Skipped."
-  if ($tfAction -eq 'apply') {
-    #create empty pipeline variable for terraformDeploymentOutputs
-    $deploymentOutputs = '{}'
-    Write-Output "##vso[task.setvariable variable=terraformDeploymentOutputs]$deploymentOutputs"
-    Write-Output "##vso[task.setvariable variable=terraformDeploymentOutputs;isOutput=true]$deploymentOutputs}"
-    #create an empty folder for the artifact so the publish artifact task does not fail
 
-    if (-not (Test-Path -Path $tfBackendStateFileDirectory)) {
-      New-Item -Path $tfBackendStateFileDirectory -ItemType Directory -Force | Out-Null
-    }
-    #create result file
-    createResultFile -fileName $deploymentResultFileName -directory $tfBackendStateFileDirectory -terraformDeployment $false
-  }
   exit
 }
 #Get the test config
@@ -135,7 +123,7 @@ if ($tfAction -eq 'apply') {
   Write-Verbose "[$(getCurrentUTCString)]: Parsing Terraform output." -Verbose
   $tfState = Get-Content -path $tfBackendStateFilePath -raw | ConvertFrom-Json -depth 99
   $script:terraformDeploymentOutputs = $tfState.outputs | ConvertTo-Json -depth 99 -EnumsAsString -EscapeHandling 'EscapeNonAscii' -Compress
-  createResultFile -fileName $deploymentResultFileName -directory $tfBackendStateFileDirectory -terraformDeployment $true -provisioningState $provisioningState -deploymentOutputs $script:terraformDeploymentOutputs
+  createResultFile -fileName $deploymentResultFileName -directory $tfBackendStateFileDirectory -terraformDeployment $true -provisioningState $script:terraformProvisioningState -deploymentOutputs $script:terraformDeploymentOutputs
   $tfStateFile = Get-item -Path $tfBackendStateFilePath -ErrorAction Stop
   $tfStateFileName = $tfStateFile.Name
 }

@@ -103,7 +103,7 @@ function applyDestroyTF {
   $tfVarsFile = findTFVarsFile -path $tfPath
   # If multiple .tfvars files are found, throw an error
   if ($tfVarsFile.Count -gt 1) {
-    Write-Error "Multiple .tfvars files found in the specified path: $path. Please specify a single .tfvars file."
+    Write-Error "Multiple .tfvars files found in the specified path: $tfPath. Please specify a single .tfvars file."
     Exit 1
   } else {
     Write-Verbose "Number of .tfvars files found: $($tfVarsFile.Count):" -verbose

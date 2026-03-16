@@ -18,9 +18,9 @@ resource "azapi_resource" "storage_account" {
       minimumTlsVersion           = "TLS1_2"
       allowSharedKeyAccess        = false
       allowCrossTenantReplication = false
-      allowedCopyScope : "AAD"
-      publicNetworkAccess      = "Disabled"
-      supportsHttpsTrafficOnly = true
+      allowedCopyScope            = "AAD"
+      publicNetworkAccess         = "Disabled"
+      supportsHttpsTrafficOnly    = true
       networkAcls = {
         bypass        = "AzureServices"
         defaultAction = "Deny"

@@ -56,7 +56,7 @@ $removalSequence = @(
   'Microsoft.Authorization/policyExemptions',
   'Microsoft.Authorization/policyAssignments',
   'Microsoft.Authorization/policySetDefinitions',
-  'Microsoft.Authorization/policyDefinitions'
+  'Microsoft.Authorization/policyDefinitions',
   'Microsoft.Sql/managedInstances',
   'Microsoft.MachineLearningServices/workspaces',
   'Microsoft.Resources/resourceGroups',

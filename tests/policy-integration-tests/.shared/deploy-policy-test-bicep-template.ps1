@@ -152,13 +152,12 @@ if (Test-path $BicepFilePath -PathType Leaf) {
   switch ($templateScope) {
     'subscription' {
       $deployParams.Add('location', $script:LocalConfig_location)
-      $deploymentJob = New-AzDeployment @deployParams
       $deploymentTarget = '/subscriptions/{0}' -f $subscription.Id
     }
     'resourcegroup' {
       $deployParams.Add('resourceGroupName', $testResourceGroupName)
       $deployParams.add('Mode', "Incremental")
-      $deploymentTarget = $testResourceGroupResourceId
+      $deploymentTarget = $resourceGroupId
     }
     default {
       Throw "The template scope '$templateScope' is not supported. Only Subscription and ResourceGroup level deployments are supported for Azure Policy test templates."

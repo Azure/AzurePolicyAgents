@@ -38,7 +38,7 @@ This object is used to define a test that checks the value of a property.
 
 PS C:\> $token = ConvertFrom-SecureString (Get-AzAccessToken -ResourceUrl 'https://management.azure.com/').token -AsPlainText
 PS C:\> $resourceId ='/subscriptions/179e669d-ba52-4df3-816f-efb8caa30241/resourceGroups/myrg/providers/Microsoft.Storage/storageAccounts/mystorage'
-PS C:\> $test = New-ARTPropertyValueTestConfig 'Network ACL Default Action Should be Deny' $token 'string' $token $resourceId 'properties.networkAcls.defaultAction' 'equals' 'Deny'
+PS C:\> $test = New-ARTPropertyValueTestConfig 'Network ACL Default Action Should be Deny' $token $resourceId 'string' 'properties.networkAcls.defaultAction' 'equals' 'Deny'
 
 Create a new instance of the PropertyValueTestConfig object by passing required parameters in the correct order "testName", "token", "resourceId", "valueType", "property", "condition" and "value".
 
@@ -46,7 +46,7 @@ Create a new instance of the PropertyValueTestConfig object by passing required 
 
 PS C:\> $token = ConvertFrom-SecureString (Get-AzAccessToken -ResourceUrl 'https://management.azure.com/').token -AsPlainText
 PS C:\> $resourceId ='/subscriptions/179e669d-ba52-4df3-816f-efb8caa30241/resourceGroups/myrg/providers/Microsoft.Network/networkSecurityGroups/mynsg'
-PS C:\> $test = New-ARTPropertyValueTestConfig 'Destination port range must not be wildcard(*)' $token 'string' 'properties.securityRules[*].properties.destinationPortRange' 'notequals' '*'
+PS C:\> $test = New-ARTPropertyValueTestConfig 'Destination port range must not be wildcard(*)' $token $resourceId 'string' 'properties.securityRules[*].properties.destinationPortRange' 'notequals' '*'
 
 Create a new instance of the PropertyValueTestConfig object by passing required parameters in the correct order "testName", "token", "resourceId", "valueType", "property", "condition" and "value".
 The property contains '[\ ]', which means it is an array property and each element of the array will be checked individually.

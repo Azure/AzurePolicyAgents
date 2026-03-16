@@ -94,7 +94,7 @@ if ($script:LocalConfig_testDenyPolicies -and $script:LocalConfig_testResourceGr
     subscriptionId    = $script:testSubscriptionId
     resourceGroupName = $script:LocalConfig_testResourceGroup
     location          = $script:LocalConfig_location
-    tags              = $script:LocalConfig_tagsForResourceGroup ? $tags : $null
+    tags              = $script:LocalConfig_tagsForResourceGroup ? $script:GlobalConfig_tags : $null
     apiVersion        = $script:GlobalConfig_resourceGroupApiVersion
   }
   #set the deployment target to the resource group for later use in tests
@@ -108,7 +108,6 @@ $script:bicepDeploymentOutputs = $null
 $script:bicepProvisioningState = $null
 $script:bicepDeploymentName = $null
 $script:bicepDeploymentId = $null
-$script:deploymentTarget = $null
 $script:bicepDeploymentScope = $null
 $script:terraformDeploymentOutputs = $null
 $script:terraformProvisioningState = $null

@@ -10,5 +10,5 @@ variable "storage_account_name" {
 
 variable "location" {
   type    = string
-  default = "Australia East"
+  default = "australiaeast"
 }

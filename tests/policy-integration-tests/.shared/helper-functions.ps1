@@ -32,7 +32,7 @@ function updateAzResourceTags {
     [Parameter(Mandatory = $false, HelpMessage = 'Set to true to revert the tags back to what it was after the update.')]
     [bool]$revertBack = $false
   )
-  $uri = 'https://management.azure.com/subscriptions/{0}/providers/Microsoft.Resources/tags/default?api-version=2021-04-01' -f $testSubscriptionId
+  $uri = 'https://management.azure.com{0}/providers/Microsoft.Resources/tags/default?api-version=2021-04-01' -f $resourceId
   $token = ConvertFrom-SecureString (Get-AzAccessToken).token -AsPlainText
   $headers = @{
     'Authorization' = "Bearer $token"
@@ -278,7 +278,7 @@ function createResourceGroupIfNotExist {
   if (!($existingResourceGroup)) {
     if ($tags) {
       Write-Verbose "[$(getCurrentUTCString)]: Resource group '$resourceGroupName' doesn't exist. Creating the resource group '$resourceGroupName' with predefined tags..." -Verbose
-      $resourceGroup = newResourceGroupViaARMAPI -subscriptionId $subscriptionId -resourceGroupName $resourceGroupName -location $location -apiVersion $apiVersion -Tag $tags
+      $resourceGroup = newResourceGroupViaARMAPI -subscriptionId $subscriptionId -resourceGroupName $resourceGroupName -location $location -apiVersion $apiVersion -tags $tags
     } else {
       Write-Verbose "[$(getCurrentUTCString)]: Resource group '$resourceGroupName' doesn't exist. Creating the resource group '$resourceGroupName' without any tags..." -Verbose
       $resourceGroup = newResourceGroupViaARMAPI -subscriptionId $subscriptionId -resourceGroupName $resourceGroupName -location $location -apiVersion $apiVersion

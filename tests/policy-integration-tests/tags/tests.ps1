@@ -96,7 +96,7 @@ $subViolatingPolicies = @(
   @{
     policyAssignmentId          = $taggingAssignmentId
     policyDefinitionReferenceId = 'TAG-004'
-  }
+  },
   @{
     policyAssignmentId          = $taggingAssignmentId
     policyDefinitionReferenceId = 'TAG-015'
@@ -107,7 +107,7 @@ $rgViolatingPolicies = @(
   @{
     policyAssignmentId          = $taggingAssignmentId
     policyDefinitionReferenceId = 'TAG-013'
-  }
+  },
   @{
     policyAssignmentId          = $taggingAssignmentId
     policyDefinitionReferenceId = 'TAG-016'
@@ -118,7 +118,7 @@ $resourceViolatingPolicies = @(
   @{
     policyAssignmentId          = $taggingAssignmentId
     policyDefinitionReferenceId = 'TAG-014'
-  }
+  },
   @{
     policyAssignmentId          = $taggingAssignmentId
     policyDefinitionReferenceId = 'TAG-017'
@@ -136,7 +136,7 @@ $subViolatingTags = @{
 }
 
 
-$subTagUpdateTestResponse = updateAzResourceTags -resourceId $$script:testSubscriptionId -tags $subViolatingTags -revertBack $true
+$subTagUpdateTestResponse = updateAzResourceTags -resourceId $testSubscriptionResourceId -tags $subViolatingTags -revertBack $true
 $subTagUpdatePolicyActualVioations = ($subTagUpdateTestResponse.content | convertfrom-Json -depth 10).error.additionalInfo | Where-Object { $_.type -ieq 'policyviolation' }
 
 #define tests
