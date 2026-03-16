@@ -1,0 +1,13 @@
+{
+  "testName": "StorageAccount",
+  "testDelayStartMinutes": 5,
+  "assignmentName": "pa-d-storage",
+  "testSubscription": "sub-d-lz-corp-01",
+  "testManagementGroup": "CONTOSO-DEV",
+  "location": "australiaeast",
+  "testAuditPoliciesFromDeployedResources": false,
+  "testAppendModifyPolicies": true,
+  "testDeployIfNotExistsPolicies": true,
+  "testDenyPolicies": true,
+  "removeTestResourceGroup": false
+}

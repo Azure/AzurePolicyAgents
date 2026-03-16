@@ -502,3 +502,6 @@ static
 
 local.settings.json
 prereqs.tfvars
+
+#pester test results
+**/tests/**/TEST-*.xml

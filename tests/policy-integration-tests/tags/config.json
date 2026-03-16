@@ -1,0 +1,16 @@
+{
+  "testName": "tags",
+  "assignmentName": "pa-d-tags",
+  "testSubscription": "sub-d-lz-corp-01",
+  "testResourceGroup": "rg-ae-d-policy-test-tags-001",
+  "testManagementGroup": "CONTOSO-DEV",
+  "location": "australiaeast",
+  "whatIfViolateBicepTemplateForRGName": "main.bad.rg.bicep",
+  "whatIfViolateBicepTemplateForResourcesName": "main.bad.resource.bicep",
+  "testAuditPoliciesFromDeployedResources": false,
+  "testAppendModifyPolicies": true,
+  "testDeployIfNotExistsPolicies": false,
+  "testDenyPolicies": true,
+  "tagsForResourceGroup": false,
+  "removeTestResourceGroup": true
+}
