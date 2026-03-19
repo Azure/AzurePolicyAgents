@@ -37,20 +37,20 @@ This object is used to define a test that checks the value of a property.
 ### Example 1
 
 PS C:\> $token = ConvertFrom-SecureString (Get-AzAccessToken -ResourceUrl 'https://management.azure.com/').token -AsPlainText
-PS C:\> $resourceId ='/subscriptions/179e669d-ba52-4df3-816f-efb8caa30241/resourceGroups/myrg/providers/Microsoft.Storage/storageAccounts/mystorage'
+PS C:\> $resourceId = '/subscriptions/179e669d-ba52-4df3-816f-efb8caa30241/resourceGroups/myrg/providers/Microsoft.Storage/storageAccounts/mystorage'
 PS C:\> $test = New-ARTPropertyValueTestConfig 'Network ACL Default Action Should be Deny' $token $resourceId 'string' 'properties.networkAcls.defaultAction' 'equals' 'Deny'
 
-Create a new instance of the PropertyValueTestConfig object by passing required parameters in the correct order "testName", "token", "resourceId", "valueType", "property", "condition" and "value".
+Create a new instance of the PropertyValueTestConfig object by passing parameters in the correct order "testName", "token", "resourceId", "valueType", "property", "condition", and "value".
 
 ### Example 2
 
 PS C:\> $token = ConvertFrom-SecureString (Get-AzAccessToken -ResourceUrl 'https://management.azure.com/').token -AsPlainText
-PS C:\> $resourceId ='/subscriptions/179e669d-ba52-4df3-816f-efb8caa30241/resourceGroups/myrg/providers/Microsoft.Network/networkSecurityGroups/mynsg'
+PS C:\> $resourceId = '/subscriptions/179e669d-ba52-4df3-816f-efb8caa30241/resourceGroups/myrg/providers/Microsoft.Network/networkSecurityGroups/mynsg'
 PS C:\> $test = New-ARTPropertyValueTestConfig 'Destination port range must not be wildcard(*)' $token $resourceId 'string' 'properties.securityRules[*].properties.destinationPortRange' 'notequals' '*'
 
-Create a new instance of the PropertyValueTestConfig object by passing required parameters in the correct order "testName", "token", "resourceId", "valueType", "property", "condition" and "value".
-The property contains '[\ ]', which means it is an array property and each element of the array will be checked individually.
-Note there can only be up to one (1) '[\ ]' in the property path.
+Create a new instance of the PropertyValueTestConfig object by passing parameters in the correct order "testName", "token", "resourceId", "valueType", "property", "condition", and "value".
+The property contains '[*]', which means it is an array property and each element of the array will be checked individually.
+Note there can only be up to one (1) '[*]' in the property path.
 
 ## PARAMETERS
 
@@ -78,8 +78,7 @@ HelpMessage: ''
 ### -condition
 
 The condition of the value comparison.
-Supported values are 'equals',
-            'notEquals', 'greater', 'less', 'greaterequal', 'lessequal'.
+Supported values are 'equals', 'notEquals', 'greater', 'less', 'greaterequal', 'lessequal'.
 
 ```yaml
 Type: System.String
@@ -144,7 +143,7 @@ HelpMessage: ''
 
 ### -resourceId
 
-The resource Id to check.
+The resource ID to check.
 
 ```yaml
 Type: System.String
@@ -186,7 +185,7 @@ HelpMessage: ''
 
 ### -testName
 
-Name of the pester test.
+Name of the Pester test.
 
 ```yaml
 Type: System.String
@@ -251,7 +250,7 @@ HelpMessage: ''
 ### -valueType
 
 Type of the resource property value.
-Supported types are 'string', 'number','boolean'.
+Supported types are 'string', 'number', 'boolean'.
 
 ```yaml
 Type: System.String
@@ -311,6 +310,3 @@ The output is an instance of the PropertyValueTestConfig object, which contains 
 ## NOTES
 
 ## RELATED LINKS
-
-{{ Fill in the related links here }}
-

@@ -37,7 +37,7 @@ Only the resources created by Terraform AzAPI provider are supported.
 
 ### Example 1
 
-#Must run az cli command to get the access token because Terraform only supports az cli authentication.
+# Must run az cli command to get the access token because Terraform only supports az cli authentication.
 PS C:\> $token = $(az account get-access-token --resource 'https://management.azure.com/' | convertfrom-json).accessToken
 PS C:\> $terraformDirectory = 'C:\Terraform\MyProject'
 PS C:\> $violatingPolicies = @(
@@ -48,7 +48,7 @@ PS C:\> $violatingPolicies = @(
     policyEffect = 'Deny'
   }
 )
-PS C:\> $test = New-ARTTerraformPolicyRestrictionTestConfig 'Storage Account should violate deny policies' $token $terraformDirectory  $violatingPolicies
+PS C:\> $test = New-ARTTerraformPolicyRestrictionTestConfig 'Storage Account should violate deny policies' $token $terraformDirectory $violatingPolicies
 
 Create a new instance of the TerraformPolicyRestrictionTestConfig object by passing required parameters in the correct order "testName", "token", "terraformDirectory" and "policyViolation".
 
@@ -120,7 +120,7 @@ HelpMessage: ''
 
 ### -testName
 
-Name of the pester test.
+Name of the Pester test.
 
 ```yaml
 Type: System.String
@@ -163,7 +163,8 @@ HelpMessage: ''
 
 ### -WhatIf
 
-Runs the command in a mode that only reports what would happen without performing the actions.
+Shows what would happen if the cmdlet runs.
+The cmdlet is not run.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -196,11 +197,8 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ### TerraformPolicyRestrictionTestConfig
 
-The output is an instance of the TerraformPolicyRestrictionTestConfig object, which contains the configuration for the Terraform policy restriction test. This object can be used to run thePester tests against the Azure Policy Restriction REST API.
+The output is an instance of the TerraformPolicyRestrictionTestConfig object, which contains the configuration for the Terraform policy restriction test. This object can be used to run the Pester tests against the Azure Policy Restriction REST API.
 
 ## NOTES
 
 ## RELATED LINKS
-
-{{ Fill in the related links here }}
-

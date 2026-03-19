@@ -34,7 +34,7 @@ Create a new instance of the ManualWhatIfTestConfig object. This object is used 
 
 ### Example 1
 
-#Calling an external function to update the tags on a subscription and then retrieve the failed policy violations from the error response.
+# Calling an external function to update the tags on a subscription and then retrieve the failed policy violations from the error response.
 PS C:\> $subTagUpdateTestResponse = updateAzResourceTags -resourceId $testSubscriptionResourceId -tags $subViolatingTags -revertBack $true
 PS C:\> $subTagUpdatePolicyActualViolations = ($subTagUpdateTestResponse.content | convertfrom-Json -depth 10).error.additionalInfo | Where-Object { $_.type -ieq 'policyviolation' }
 PS C:\> $taggingPolicyAssignmentId = '/providers/Microsoft.Management/managementGroups/my-mg/providers/Microsoft.Authorization/policyAssignments/tagging-assignment'
@@ -50,7 +50,7 @@ PS C:\> $violatingPolicies = @(
 )
 PS C:\> $test = New-ARTManualWhatIfTestConfig -testName 'Subscription Tagging Policy violating update should fail' -actualPolicyViolation $subTagUpdatePolicyActualViolations -desiredPolicyViolation $violatingPolicies
 
-Create a new instance of the ManualWhatIfTestConfig object by passing required parameters in the correct order "testName", "actualPolicyViolation", "desiredPolicyViolation".
+Create a new instance of the ManualWhatIfTestConfig object by passing parameters in the correct order "testName", "actualPolicyViolation", and "desiredPolicyViolation".
 
 ## PARAMETERS
 
@@ -120,7 +120,7 @@ HelpMessage: ''
 
 ### -testName
 
-Name of the pester test.
+Name of the Pester test.
 
 ```yaml
 Type: System.String
@@ -180,6 +180,3 @@ The output is an instance of the ManualWhatIfTestConfig object, which contains t
 ## NOTES
 
 ## RELATED LINKS
-
-{{ Fill in the related links here }}
-

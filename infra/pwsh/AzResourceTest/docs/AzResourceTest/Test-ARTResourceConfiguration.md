@@ -35,7 +35,7 @@ Invoke Azure resource tests by passing defined test cases.
 ### Example 1
 
 PS C:\> $tests = @()
-PS C:\> $resourceId ='/subscriptions/179e669d-ba52-4df3-816f-efb8caa30241/resourceGroups/myrg/providers/Microsoft.Storage/storageAccounts/mystorage'
+PS C:\> $resourceId = '/subscriptions/179e669d-ba52-4df3-816f-efb8caa30241/resourceGroups/myrg/providers/Microsoft.Storage/storageAccounts/mystorage'
 PS C:\> $token = ConvertFrom-SecureString (Get-AzAccessToken -ResourceUrl 'https://management.azure.com/').token -AsPlainText
 PS C:\> $tests += New-ARTPropertyValueTestConfig 'Network ACL Default Action Should be Deny' $token $resourceId 'string' 'properties.networkAcls.defaultAction' 'equals' 'Deny'
 PS C:\> $tests += New-ARTPropertyValueTestConfig 'Double Encryption must be enabled' $token $resourceId 'boolean' 'properties.encryption.requireInfrastructureEncryption' 'equals' $true
@@ -44,7 +44,7 @@ PS C:\> $params = @{
   testTitle = 'Storage Account Configuration Test'
   contextTitle = 'Storage Configuration'
   testSuiteName = 'StorageAccountTest'
-  OutputFile = join-path $PSScriptRoot "TEST-Resource-Config-.$testSuiteName.XML"
+  OutputFile = join-path $PSScriptRoot "TEST-Resource-Config-$testSuiteName.XML"
   OutputFormat = 'NUnitXml'
 }
 PS C:\> Test-ARTResourceConfiguration @params
@@ -98,7 +98,7 @@ HelpMessage: ''
 ### -OutputFormat
 
 The output format of the test result.
-Supported values are 'NUnitXml' and 'LegacyNUnitXML'
+Supported values are 'NUnitXml' and 'LegacyNUnitXML'.
 
 ```yaml
 Type: System.String
@@ -199,6 +199,3 @@ The Pester test result.
 ## NOTES
 
 ## RELATED LINKS
-
-{{ Fill in the related links here }}
-

@@ -37,9 +37,11 @@ This object is used to define a test that checks the compliance state of a polic
 ### Example 1
 
 PS C:\> $token = ConvertFrom-SecureString (Get-AzAccessToken -ResourceUrl 'https://management.azure.com/').token -AsPlainText
-PS C:\> $test = New-ARTPolicyStateTestConfig 'Audit CMK Encryption policy should be Compliant' $token '/providers/Microsoft.Management/managementGroups/myMG/providers/Microsoft.Authorization/policyAssignments/myPolicyAssignment' 'Compliant' 'ReferenceIdOfPolicyDefinition'
+PS C:\> $resourceId = '/subscriptions/179e669d-ba52-4df3-816f-efb8caa30241/resourceGroups/myRg/providers/Microsoft.Storage/storageAccounts/mystorageaccount'
+PS C:\> $policyAssignmentId = '/providers/Microsoft.Management/managementGroups/myMG/providers/Microsoft.Authorization/policyAssignments/myPolicyAssignment'
+PS C:\> $test = New-ARTPolicyStateTestConfig 'Audit CMK Encryption policy should be Compliant' $token $resourceId $policyAssignmentId 'Compliant' 'ReferenceIdOfPolicyDefinition'
 
-Create a new instance of the PolicyStateTestConfig object by passing required parameters in the correct order "testName", "token", "policyAssignmentId", "requiredComplianceState" and "policyDefinitionReferenceId".
+Create a new instance of the PolicyStateTestConfig object by passing parameters in the correct order "testName", "token", "resourceId", "policyAssignmentId", "requiredComplianceState", and "policyDefinitionReferenceId".
 
 ## PARAMETERS
 
@@ -67,7 +69,7 @@ HelpMessage: ''
 
 ### -policyAssignmentId
 
-The policy assignment Id to check.
+The policy assignment ID to check.
 
 ```yaml
 Type: System.String
@@ -88,7 +90,7 @@ HelpMessage: ''
 
 ### -policyDefinitionReferenceId
 
-When a policy initiative is assigned, the policy definition reference Id to check.
+When a policy initiative is assigned, the policy definition reference ID to check.
 If not specified, the test will check the compliance state of the policy assignment.
 
 ```yaml
@@ -131,7 +133,7 @@ HelpMessage: ''
 
 ### -resourceId
 
-The resource Id to check.
+The resource ID to check.
 
 ```yaml
 Type: System.String
@@ -152,7 +154,7 @@ HelpMessage: ''
 
 ### -testName
 
-Name of the pester test.
+Name of the Pester test.
 
 ```yaml
 Type: System.String
@@ -234,6 +236,3 @@ The output is an instance of the PolicyStateTestConfig object, which contains th
 ## NOTES
 
 ## RELATED LINKS
-
-{{ Fill in the related links here }}
-

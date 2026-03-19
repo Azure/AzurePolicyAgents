@@ -37,16 +37,18 @@ This object is used to define a test that checks the count of a property value.
 ### Example 1
 
 PS C:\> $token = ConvertFrom-SecureString (Get-AzAccessToken -ResourceUrl 'https://management.azure.com/').token -AsPlainText
-PS C:\> $test = New-ARTPropertyCountTestConfig 'Should Use Private Endpoints' $token @('properties.privateEndpointConnections', 'properties.manualPrivateEndpointConnections') 'greaterequal' 1 'concat'
+PS C:\> $resourceId = '/subscriptions/179e669d-ba52-4df3-816f-efb8caa30241/resourceGroups/myRg/providers/Microsoft.Storage/storageAccounts/mystorageaccount'
+PS C:\> $test = New-ARTPropertyCountTestConfig 'Should Use Private Endpoints' $token $resourceId @('properties.privateEndpointConnections', 'properties.manualPrivateEndpointConnections') 'greaterequal' 1 'concat'
 
-Create a new instance of the PropertyCountTestConfig object by passing required parameters in the correct order "testName", "token", "property", "condition", "count" and "operator".
+Create a new instance of the PropertyCountTestConfig object by passing parameters in the correct order "testName", "token", "resourceId", "property", "condition", "count", and "operator".
 
 ### Example 2
 
 PS C:\> $token = ConvertFrom-SecureString (Get-AzAccessToken -ResourceUrl 'https://management.azure.com/').token -AsPlainText
-PS C:\> $test = New-ARTPropertyCountTestConfig 'Should have environment tag' $token 'tags.environment' 'equals' 1
+PS C:\> $resourceId = '/subscriptions/179e669d-ba52-4df3-816f-efb8caa30241/resourceGroups/myRg/providers/Microsoft.Storage/storageAccounts/mystorageaccount'
+PS C:\> $test = New-ARTPropertyCountTestConfig 'Should have environment tag' $token $resourceId 'tags.environment' 'equals' 1
 
-Create a new instance of the PropertyCountTestConfig object by passing required parameters in the correct order "testName", "token", "property", "condition" and "count".
+Create a new instance of the PropertyCountTestConfig object by passing parameters in the correct order "testName", "token", "resourceId", "property", "condition", and "count".
 
 ## PARAMETERS
 
@@ -181,7 +183,7 @@ HelpMessage: ''
 
 ### -resourceId
 
-The resource Id to check.
+The resource ID to check.
 
 ```yaml
 Type: System.String
@@ -223,7 +225,7 @@ HelpMessage: ''
 
 ### -testName
 
-Name of the pester test.
+Name of the Pester test.
 
 ```yaml
 Type: System.String
@@ -306,5 +308,5 @@ The output is an instance of the PropertyCountTestConfig object, which contains 
 
 ## RELATED LINKS
 
-{{ Fill in the related links here }}
+
 

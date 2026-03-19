@@ -46,7 +46,7 @@ PS C:\> $resourcePropertiesJson = @"
 PS C:\> $resourceConfig = @{
   resourceName       = $storageAccountName
   resourceType       = 'Microsoft.Storage/storageAccounts'
-  apiVersion         = '2024-101-01'
+  apiVersion         = '2024-01-01'
   resourceContent    = $resourcePropertiesJson
   location = 'australiaeast'
   includeAuditEffect = $true
@@ -89,7 +89,7 @@ HelpMessage: ''
 
 ### -deploymentTargetResourceId
 
-The resource Id of the deployment scope.
+The resource ID of the deployment scope.
 
 ```yaml
 Type: System.String
@@ -110,7 +110,7 @@ HelpMessage: ''
 
 ### -policyViolation
 
-The desired policy violation information for the Terraform Plan test.
+The desired policy violation information for the ARM policy restriction test.
 
 ```yaml
 Type: PolicyRestrictionViolationInfo[]
@@ -152,7 +152,7 @@ HelpMessage: ''
 
 ### -testName
 
-Name of the pester test.
+Name of the Pester test.
 
 ```yaml
 Type: System.String
@@ -195,7 +195,7 @@ HelpMessage: ''
 
 ### -WhatIf
 
-Runs the command in a mode that only reports what would happen without performing the actions.
+Shows what would happen if the cmdlet runs. The cmdlet is not run.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -233,6 +233,3 @@ The output is an instance of the ArmPolicyRestrictionTestConfig object, which co
 ## NOTES
 
 ## RELATED LINKS
-
-{{ Fill in the related links here }}
-

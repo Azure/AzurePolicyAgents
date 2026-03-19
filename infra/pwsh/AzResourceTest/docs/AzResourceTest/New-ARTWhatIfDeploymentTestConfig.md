@@ -63,7 +63,7 @@ PS C:\> $whatIfDeploymentTargetResourceId = '/subscriptions/179e669d-ba52-4df3-8
 PS C:\> $whatIfFailedTemplatePath = join-path $PSScriptRoot 'bad.bicep'
 PS C:\> $test = New-ARTWhatIfDeploymentTestConfig 'Policy violating deployment should fail' $token $whatIfFailedTemplatePath $whatIfDeploymentTargetResourceId 'Failed' $violatingPolicies
 
-Create a new instance of the WhatIfDeploymentTestConfig object by passing required parameters in the correct order "testName", "token", "templateFilePath", "deploymentTargetResourceId", "requiredWhatIfStatus", "policyViolation".
+Create a new instance of the WhatIfDeploymentTestConfig object by passing parameters in the correct order "testName", "token", "templateFilePath", "deploymentTargetResourceId", "requiredWhatIfStatus", and "policyViolation".
 
 ## PARAMETERS
 
@@ -114,8 +114,8 @@ HelpMessage: ''
 
 ### -deploymentTargetResourceId
 
-The resource Id of the deployment target.
-For example, the subscription or resource group resource Id.
+The resource ID of the deployment target.
+For example, the subscription or resource group resource ID.
 
 ```yaml
 Type: System.String
@@ -288,7 +288,7 @@ HelpMessage: ''
 
 ### -testName
 
-Name of the pester test.
+Name of the Pester test.
 
 ```yaml
 Type: System.String
@@ -370,6 +370,3 @@ The output is an instance of the WhatIfDeploymentTestConfig object, which contai
 ## NOTES
 
 ## RELATED LINKS
-
-{{ Fill in the related links here }}
-
