@@ -1,7 +1,7 @@
 ﻿---
 document type: cmdlet
 external help file: AzResourceTest-help.xml
-HelpUri: ''
+HelpUri: 'https://github.com/Azure/AzurePolicyAgents/blob/main/infra/pwsh/AzResourceTest/docs/AzResourceTest/New-ARTPolicyStateTestConfig.md'
 Locale: en-AU
 Module Name: AzResourceTest
 ms.date: 02/23/2026

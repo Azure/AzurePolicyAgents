@@ -1,7 +1,7 @@
 ﻿---
 document type: cmdlet
 external help file: AzResourceTest-help.xml
-HelpUri: ''
+HelpUri: 'https://github.com/Azure/AzurePolicyAgents/blob/main/infra/pwsh/AzResourceTest/docs/AzResourceTest/New-ARTTerraformPolicyRestrictionTestConfig.md'
 Locale: en-AU
 Module Name: AzResourceTest
 ms.date: 02/23/2026
@@ -37,7 +37,6 @@ Only the resources created by Terraform AzAPI provider are supported.
 
 ### Example 1
 
-# Must run az cli command to get the access token because Terraform only supports az cli authentication.
 PS C:\> $token = $(az account get-access-token --resource 'https://management.azure.com/' | convertfrom-json).accessToken
 PS C:\> $terraformDirectory = 'C:\Terraform\MyProject'
 PS C:\> $violatingPolicies = @(
@@ -49,6 +48,8 @@ PS C:\> $violatingPolicies = @(
   }
 )
 PS C:\> $test = New-ARTTerraformPolicyRestrictionTestConfig 'Storage Account should violate deny policies' $token $terraformDirectory $violatingPolicies
+
+Must run az cli command to get the access token because Terraform only supports az cli authentication.
 
 Create a new instance of the TerraformPolicyRestrictionTestConfig object by passing required parameters in the correct order "testName", "token", "terraformDirectory" and "policyViolation".
 
