@@ -10,7 +10,7 @@
       <command:noun>ARTResourceConfiguration</command:noun>
     </command:details>
     <maml:description>
-      <maml:para>Get the configuration of an existing Azure resource via Azure Resource Graph         search.</maml:para>
+      <maml:para>Get the configuration of an existing Azure resource via Azure Resource Graph search.</maml:para>
     </maml:description>
     <command:syntax>
       <command:syntaxItem>
@@ -18,23 +18,23 @@
         <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
           <maml:name>customQuery</maml:name>
           <maml:description>
-            <maml:para>the custom ARG search query.</maml:para>
+            <maml:para>The custom ARG search query.</maml:para>
           </maml:description>
           <command:parameterValue required="true" variableLength="true">System.String</command:parameterValue>
         </command:parameter>
         <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
           <maml:name>Scope</maml:name>
           <maml:description>
-            <maml:para>the scope for the ARG search query.
-This can be a subscription id, subscription name, or a management group name</maml:para>
+            <maml:para>The scope for the ARG search query.
+This can be a subscription ID, subscription name, or a management group name.</maml:para>
           </maml:description>
           <command:parameterValue required="false" variableLength="true">System.String</command:parameterValue>
         </command:parameter>
         <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
           <maml:name>ScopeType</maml:name>
           <maml:description>
-            <maml:para>the scope type for the ARG search query.
-Possible values are 'subscription' and 'managementGroup'</maml:para>
+            <maml:para>The scope type for the ARG search query.
+Possible values are 'subscription', 'managementGroup', and 'tenant'.</maml:para>
           </maml:description>
           <command:parameterValue required="true" variableLength="true">System.String</command:parameterValue>
         </command:parameter>
@@ -60,30 +60,30 @@ The table to search for in Azure Resource Graph.</maml:para>
         <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
           <maml:name>resourceIds</maml:name>
           <maml:description>
-            <maml:para>the resource Ids to search for in Azure resource graph.</maml:para>
+            <maml:para>The resource IDs to search for in Azure Resource Graph.</maml:para>
           </maml:description>
           <command:parameterValue required="false" variableLength="true">System.String[]</command:parameterValue>
         </command:parameter>
         <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
           <maml:name>resourceType</maml:name>
           <maml:description>
-            <maml:para>the resource type to search for in Azure resource graph.</maml:para>
+            <maml:para>The resource type to search for in Azure Resource Graph.</maml:para>
           </maml:description>
           <command:parameterValue required="true" variableLength="true">System.String</command:parameterValue>
         </command:parameter>
         <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
           <maml:name>Scope</maml:name>
           <maml:description>
-            <maml:para>the scope for the ARG search query.
-This can be a subscription id, subscription name, or a management group name</maml:para>
+            <maml:para>The scope for the ARG search query.
+This can be a subscription ID, subscription name, or a management group name.</maml:para>
           </maml:description>
           <command:parameterValue required="false" variableLength="true">System.String</command:parameterValue>
         </command:parameter>
         <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
           <maml:name>ScopeType</maml:name>
           <maml:description>
-            <maml:para>the scope type for the ARG search query.
-Possible values are 'subscription' and 'managementGroup'</maml:para>
+            <maml:para>The scope type for the ARG search query.
+Possible values are 'subscription', 'managementGroup', and 'tenant'.</maml:para>
           </maml:description>
           <command:parameterValue required="true" variableLength="true">System.String</command:parameterValue>
         </command:parameter>
@@ -109,37 +109,37 @@ The table to search for in Azure Resource Graph.</maml:para>
       <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
         <maml:name>customQuery</maml:name>
         <maml:description>
-          <maml:para>the custom ARG search query.</maml:para>
+          <maml:para>The custom ARG search query.</maml:para>
         </maml:description>
         <command:parameterValue required="true" variableLength="true">System.String</command:parameterValue>
       </command:parameter>
       <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
         <maml:name>resourceIds</maml:name>
         <maml:description>
-          <maml:para>the resource Ids to search for in Azure resource graph.</maml:para>
+          <maml:para>The resource IDs to search for in Azure Resource Graph.</maml:para>
         </maml:description>
         <command:parameterValue required="false" variableLength="true">System.String[]</command:parameterValue>
       </command:parameter>
       <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
         <maml:name>resourceType</maml:name>
         <maml:description>
-          <maml:para>the resource type to search for in Azure resource graph.</maml:para>
+          <maml:para>The resource type to search for in Azure Resource Graph.</maml:para>
         </maml:description>
         <command:parameterValue required="true" variableLength="true">System.String</command:parameterValue>
       </command:parameter>
       <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
         <maml:name>Scope</maml:name>
         <maml:description>
-          <maml:para>the scope for the ARG search query.
-This can be a subscription id, subscription name, or a management group name</maml:para>
+          <maml:para>The scope for the ARG search query.
+This can be a subscription ID, subscription name, or a management group name.</maml:para>
         </maml:description>
         <command:parameterValue required="false" variableLength="true">System.String</command:parameterValue>
       </command:parameter>
       <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
         <maml:name>ScopeType</maml:name>
         <maml:description>
-          <maml:para>the scope type for the ARG search query.
-Possible values are 'subscription' and 'managementGroup'</maml:para>
+          <maml:para>The scope type for the ARG search query.
+Possible values are 'subscription', 'managementGroup', and 'tenant'.</maml:para>
         </maml:description>
         <command:parameterValue required="true" variableLength="true">System.String</command:parameterValue>
       </command:parameter>
@@ -184,9 +184,9 @@ PS C:\&gt; Get-ARTResourceConfiguration -Scope "mySubscription" -Token $token -S
         <maml:title>--------- Example 2 ---------</maml:title>
         <maml:introduction>
           <maml:para>PS C:\&gt; $token = ConvertFrom-SecureString (Get-AzAccessToken -ResourceUrl 'https://management.azure.com/').token -AsPlainText
-PS C:\&gt; Get-ARTResourceConfiguration -ScopeType "tenant" -resourceType "Microsoft.Compute/virtualMachines" -Token $token -resourceIds '/subscriptions/179e669d-ba52-4df3-816f-efb8caa30241/resourceGroups/myRg/providers/Microsoft.Storage/storageAccounts/mystorageaccount'</maml:para>
+PS C:\&gt; Get-ARTResourceConfiguration -ScopeType "tenant" -resourceType "Microsoft.Storage/storageAccounts" -Token $token -resourceIds '/subscriptions/179e669d-ba52-4df3-816f-efb8caa30241/resourceGroups/myRg/providers/Microsoft.Storage/storageAccounts/mystorageaccount'</maml:para>
           <maml:para>&#x80;</maml:para>
-          <maml:para>Get a specific storage account by searching the resource Id in the tenant scope.</maml:para>
+          <maml:para>Get a specific storage account by searching the resource ID in the tenant scope.</maml:para>
         </maml:introduction>
         <dev:code />
         <dev:remarks />
@@ -195,7 +195,7 @@ PS C:\&gt; Get-ARTResourceConfiguration -ScopeType "tenant" -resourceType "Micro
     <command:relatedLinks>
       <maml:navigationLink>
         <maml:linkText>Online Version</maml:linkText>
-        <command:uri />
+        <command:uri>https://github.com/Azure/AzurePolicyAgents/blob/main/infra/pwsh/AzResourceTest/docs/AzResourceTest/Get-ARTResourceConfiguration.md</command:uri>
       </maml:navigationLink>
     </command:relatedLinks>
   </command:command>
@@ -224,14 +224,14 @@ PS C:\&gt; Get-ARTResourceConfiguration -ScopeType "tenant" -resourceType "Micro
         <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="false" position="2" aliases="none">
           <maml:name>deploymentTargetResourceId</maml:name>
           <maml:description>
-            <maml:para>The resource Id of the deployment scope.</maml:para>
+            <maml:para>The resource ID of the deployment scope.</maml:para>
           </maml:description>
           <command:parameterValue required="true" variableLength="true">System.String</command:parameterValue>
         </command:parameter>
         <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="false" position="4" aliases="none">
           <maml:name>policyViolation</maml:name>
           <maml:description>
-            <maml:para>The desired policy violation information for the Terraform Plan test.</maml:para>
+            <maml:para>The desired policy violation information for the ARM policy restriction test.</maml:para>
           </maml:description>
           <command:parameterValue required="true" variableLength="true">PolicyRestrictionViolationInfo[]</command:parameterValue>
         </command:parameter>
@@ -245,7 +245,7 @@ PS C:\&gt; Get-ARTResourceConfiguration -ScopeType "tenant" -resourceType "Micro
         <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
           <maml:name>testName</maml:name>
           <maml:description>
-            <maml:para>Name of the pester test.</maml:para>
+            <maml:para>Name of the Pester test.</maml:para>
           </maml:description>
           <command:parameterValue required="true" variableLength="true">System.String</command:parameterValue>
         </command:parameter>
@@ -260,7 +260,7 @@ This is required to invoke the Azure Resource Manager REST APIs.</maml:para>
         <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
           <maml:name>WhatIf</maml:name>
           <maml:description>
-            <maml:para>Runs the command in a mode that only reports what would happen without performing the actions.</maml:para>
+            <maml:para>Shows what would happen if the cmdlet runs. The cmdlet is not run.</maml:para>
           </maml:description>
           <command:parameterValue required="false" variableLength="true">System.Management.Automation.SwitchParameter</command:parameterValue>
         </command:parameter>
@@ -277,14 +277,14 @@ This is required to invoke the Azure Resource Manager REST APIs.</maml:para>
       <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="false" position="2" aliases="none">
         <maml:name>deploymentTargetResourceId</maml:name>
         <maml:description>
-          <maml:para>The resource Id of the deployment scope.</maml:para>
+          <maml:para>The resource ID of the deployment scope.</maml:para>
         </maml:description>
         <command:parameterValue required="true" variableLength="true">System.String</command:parameterValue>
       </command:parameter>
       <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="false" position="4" aliases="none">
         <maml:name>policyViolation</maml:name>
         <maml:description>
-          <maml:para>The desired policy violation information for the Terraform Plan test.</maml:para>
+          <maml:para>The desired policy violation information for the ARM policy restriction test.</maml:para>
         </maml:description>
         <command:parameterValue required="true" variableLength="true">PolicyRestrictionViolationInfo[]</command:parameterValue>
       </command:parameter>
@@ -298,7 +298,7 @@ This is required to invoke the Azure Resource Manager REST APIs.</maml:para>
       <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
         <maml:name>testName</maml:name>
         <maml:description>
-          <maml:para>Name of the pester test.</maml:para>
+          <maml:para>Name of the Pester test.</maml:para>
         </maml:description>
         <command:parameterValue required="true" variableLength="true">System.String</command:parameterValue>
       </command:parameter>
@@ -313,7 +313,7 @@ This is required to invoke the Azure Resource Manager REST APIs.</maml:para>
       <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
         <maml:name>WhatIf</maml:name>
         <maml:description>
-          <maml:para>Runs the command in a mode that only reports what would happen without performing the actions.</maml:para>
+          <maml:para>Shows what would happen if the cmdlet runs. The cmdlet is not run.</maml:para>
         </maml:description>
         <command:parameterValue required="false" variableLength="true">System.Management.Automation.SwitchParameter</command:parameterValue>
       </command:parameter>
@@ -349,7 +349,7 @@ PS C:\&gt; $resourcePropertiesJson = @"
 PS C:\&gt; $resourceConfig = @{
   resourceName       = $storageAccountName
   resourceType       = 'Microsoft.Storage/storageAccounts'
-  apiVersion         = '2024-101-01'
+  apiVersion         = '2024-01-01'
   resourceContent    = $resourcePropertiesJson
   location = 'australiaeast'
   includeAuditEffect = $true
@@ -416,7 +416,7 @@ PS C:\&gt; $test = New-ARTArmPolicyRestrictionTestConfig 'Storage Account should
         <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
           <maml:name>testName</maml:name>
           <maml:description>
-            <maml:para>Name of the pester test.</maml:para>
+            <maml:para>Name of the Pester test.</maml:para>
           </maml:description>
           <command:parameterValue required="true" variableLength="true">System.String</command:parameterValue>
         </command:parameter>
@@ -455,7 +455,7 @@ The cmdlet is not run.</maml:para>
       <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
         <maml:name>testName</maml:name>
         <maml:description>
-          <maml:para>Name of the pester test.</maml:para>
+          <maml:para>Name of the Pester test.</maml:para>
         </maml:description>
         <command:parameterValue required="true" variableLength="true">System.String</command:parameterValue>
       </command:parameter>
@@ -488,7 +488,7 @@ The cmdlet is not run.</maml:para>
       <command:example>
         <maml:title>--------- Example 1 ---------</maml:title>
         <maml:introduction>
-          <maml:para>#Calling an external function to update the tags on a subscription and then retrieve the failed policy violations from the error response.
+          <maml:para># Calling an external function to update the tags on a subscription and then retrieve the failed policy violations from the error response.
 PS C:\&gt; $subTagUpdateTestResponse = updateAzResourceTags -resourceId $testSubscriptionResourceId -tags $subViolatingTags -revertBack $true
 PS C:\&gt; $subTagUpdatePolicyActualViolations = ($subTagUpdateTestResponse.content | convertfrom-Json -depth 10).error.additionalInfo | Where-Object { $_.type -ieq 'policyviolation' }
 PS C:\&gt; $taggingPolicyAssignmentId = '/providers/Microsoft.Management/managementGroups/my-mg/providers/Microsoft.Authorization/policyAssignments/tagging-assignment'
@@ -504,7 +504,7 @@ PS C:\&gt; $violatingPolicies = @(
 )
 PS C:\&gt; $test = New-ARTManualWhatIfTestConfig -testName 'Subscription Tagging Policy violating update should fail' -actualPolicyViolation $subTagUpdatePolicyActualViolations -desiredPolicyViolation $violatingPolicies</maml:para>
           <maml:para>&#x80;</maml:para>
-          <maml:para>Create a new instance of the ManualWhatIfTestConfig object by passing required parameters in the correct order "testName", "actualPolicyViolation", "desiredPolicyViolation".</maml:para>
+          <maml:para>Create a new instance of the ManualWhatIfTestConfig object by passing parameters in the correct order "testName", "actualPolicyViolation", and "desiredPolicyViolation".</maml:para>
         </maml:introduction>
         <dev:code />
         <dev:remarks />
@@ -542,14 +542,14 @@ PS C:\&gt; $test = New-ARTManualWhatIfTestConfig -testName 'Subscription Tagging
         <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="false" position="3" aliases="none">
           <maml:name>policyAssignmentId</maml:name>
           <maml:description>
-            <maml:para>The policy assignment Id to check.</maml:para>
+            <maml:para>The policy assignment ID to check.</maml:para>
           </maml:description>
           <command:parameterValue required="true" variableLength="true">System.String</command:parameterValue>
         </command:parameter>
         <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="5" aliases="none">
           <maml:name>policyDefinitionReferenceId</maml:name>
           <maml:description>
-            <maml:para>When a policy initiative is assigned, the policy definition reference Id to check.
+            <maml:para>When a policy initiative is assigned, the policy definition reference ID to check.
 If not specified, the test will check the compliance state of the policy assignment.</maml:para>
           </maml:description>
           <command:parameterValue required="false" variableLength="true">System.String</command:parameterValue>
@@ -564,14 +564,14 @@ If not specified, the test will check the compliance state of the policy assignm
         <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="false" position="2" aliases="none">
           <maml:name>resourceId</maml:name>
           <maml:description>
-            <maml:para>The resource Id to check.</maml:para>
+            <maml:para>The resource ID to check.</maml:para>
           </maml:description>
           <command:parameterValue required="true" variableLength="true">System.String</command:parameterValue>
         </command:parameter>
         <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
           <maml:name>testName</maml:name>
           <maml:description>
-            <maml:para>Name of the pester test.</maml:para>
+            <maml:para>Name of the Pester test.</maml:para>
           </maml:description>
           <command:parameterValue required="true" variableLength="true">System.String</command:parameterValue>
         </command:parameter>
@@ -604,14 +604,14 @@ The cmdlet is not run.</maml:para>
       <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="false" position="3" aliases="none">
         <maml:name>policyAssignmentId</maml:name>
         <maml:description>
-          <maml:para>The policy assignment Id to check.</maml:para>
+          <maml:para>The policy assignment ID to check.</maml:para>
         </maml:description>
         <command:parameterValue required="true" variableLength="true">System.String</command:parameterValue>
       </command:parameter>
       <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="5" aliases="none">
         <maml:name>policyDefinitionReferenceId</maml:name>
         <maml:description>
-          <maml:para>When a policy initiative is assigned, the policy definition reference Id to check.
+          <maml:para>When a policy initiative is assigned, the policy definition reference ID to check.
 If not specified, the test will check the compliance state of the policy assignment.</maml:para>
         </maml:description>
         <command:parameterValue required="false" variableLength="true">System.String</command:parameterValue>
@@ -626,14 +626,14 @@ If not specified, the test will check the compliance state of the policy assignm
       <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="false" position="2" aliases="none">
         <maml:name>resourceId</maml:name>
         <maml:description>
-          <maml:para>The resource Id to check.</maml:para>
+          <maml:para>The resource ID to check.</maml:para>
         </maml:description>
         <command:parameterValue required="true" variableLength="true">System.String</command:parameterValue>
       </command:parameter>
       <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
         <maml:name>testName</maml:name>
         <maml:description>
-          <maml:para>Name of the pester test.</maml:para>
+          <maml:para>Name of the Pester test.</maml:para>
         </maml:description>
         <command:parameterValue required="true" variableLength="true">System.String</command:parameterValue>
       </command:parameter>
@@ -675,9 +675,11 @@ The cmdlet is not run.</maml:para>
         <maml:title>--------- Example 1 ---------</maml:title>
         <maml:introduction>
           <maml:para>PS C:\&gt; $token = ConvertFrom-SecureString (Get-AzAccessToken -ResourceUrl 'https://management.azure.com/').token -AsPlainText
-PS C:\&gt; $test = New-ARTPolicyStateTestConfig 'Audit CMK Encryption policy should be Compliant' $token '/providers/Microsoft.Management/managementGroups/myMG/providers/Microsoft.Authorization/policyAssignments/myPolicyAssignment' 'Compliant' 'ReferenceIdOfPolicyDefinition'</maml:para>
+PS C:\&gt; $resourceId = '/subscriptions/179e669d-ba52-4df3-816f-efb8caa30241/resourceGroups/myRg/providers/Microsoft.Storage/storageAccounts/mystorageaccount'
+PS C:\&gt; $policyAssignmentId = '/providers/Microsoft.Management/managementGroups/myMG/providers/Microsoft.Authorization/policyAssignments/myPolicyAssignment'
+PS C:\&gt; $test = New-ARTPolicyStateTestConfig 'Audit CMK Encryption policy should be Compliant' $token $resourceId $policyAssignmentId 'Compliant' 'ReferenceIdOfPolicyDefinition'</maml:para>
           <maml:para>&#x80;</maml:para>
-          <maml:para>Create a new instance of the PolicyStateTestConfig object by passing required parameters in the correct order "testName", "token", "policyAssignmentId", "requiredComplianceState" and "policyDefinitionReferenceId".</maml:para>
+          <maml:para>Create a new instance of the PolicyStateTestConfig object by passing parameters in the correct order "testName", "token", "resourceId", "policyAssignmentId", "requiredComplianceState", and "policyDefinitionReferenceId".</maml:para>
         </maml:introduction>
         <dev:code />
         <dev:remarks />
@@ -752,7 +754,7 @@ Supported values are 'and', 'or', 'concat'.</maml:para>
         <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="false" position="2" aliases="none">
           <maml:name>resourceId</maml:name>
           <maml:description>
-            <maml:para>The resource Id to check.</maml:para>
+            <maml:para>The resource ID to check.</maml:para>
           </maml:description>
           <command:parameterValue required="true" variableLength="true">System.String</command:parameterValue>
         </command:parameter>
@@ -766,7 +768,7 @@ Supported values are 'and', 'or', 'concat'.</maml:para>
         <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
           <maml:name>testName</maml:name>
           <maml:description>
-            <maml:para>Name of the pester test.</maml:para>
+            <maml:para>Name of the Pester test.</maml:para>
           </maml:description>
           <command:parameterValue required="true" variableLength="true">System.String</command:parameterValue>
         </command:parameter>
@@ -836,7 +838,7 @@ Supported values are 'and', 'or', 'concat'.</maml:para>
       <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="false" position="2" aliases="none">
         <maml:name>resourceId</maml:name>
         <maml:description>
-          <maml:para>The resource Id to check.</maml:para>
+          <maml:para>The resource ID to check.</maml:para>
         </maml:description>
         <command:parameterValue required="true" variableLength="true">System.String</command:parameterValue>
       </command:parameter>
@@ -850,7 +852,7 @@ Supported values are 'and', 'or', 'concat'.</maml:para>
       <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
         <maml:name>testName</maml:name>
         <maml:description>
-          <maml:para>Name of the pester test.</maml:para>
+          <maml:para>Name of the Pester test.</maml:para>
         </maml:description>
         <command:parameterValue required="true" variableLength="true">System.String</command:parameterValue>
       </command:parameter>
@@ -892,9 +894,10 @@ The cmdlet is not run.</maml:para>
         <maml:title>--------- Example 1 ---------</maml:title>
         <maml:introduction>
           <maml:para>PS C:\&gt; $token = ConvertFrom-SecureString (Get-AzAccessToken -ResourceUrl 'https://management.azure.com/').token -AsPlainText
-PS C:\&gt; $test = New-ARTPropertyCountTestConfig 'Should Use Private Endpoints' $token @('properties.privateEndpointConnections', 'properties.manualPrivateEndpointConnections') 'greaterequal' 1 'concat'</maml:para>
+PS C:\&gt; $resourceId = '/subscriptions/179e669d-ba52-4df3-816f-efb8caa30241/resourceGroups/myRg/providers/Microsoft.Storage/storageAccounts/mystorageaccount'
+PS C:\&gt; $test = New-ARTPropertyCountTestConfig 'Should Use Private Endpoints' $token $resourceId @('properties.privateEndpointConnections', 'properties.manualPrivateEndpointConnections') 'greaterequal' 1 'concat'</maml:para>
           <maml:para>&#x80;</maml:para>
-          <maml:para>Create a new instance of the PropertyCountTestConfig object by passing required parameters in the correct order "testName", "token", "property", "condition", "count" and "operator".</maml:para>
+          <maml:para>Create a new instance of the PropertyCountTestConfig object by passing parameters in the correct order "testName", "token", "resourceId", "property", "condition", "count", and "operator".</maml:para>
         </maml:introduction>
         <dev:code />
         <dev:remarks />
@@ -903,9 +906,10 @@ PS C:\&gt; $test = New-ARTPropertyCountTestConfig 'Should Use Private Endpoints'
         <maml:title>--------- Example 2 ---------</maml:title>
         <maml:introduction>
           <maml:para>PS C:\&gt; $token = ConvertFrom-SecureString (Get-AzAccessToken -ResourceUrl 'https://management.azure.com/').token -AsPlainText
-PS C:\&gt; $test = New-ARTPropertyCountTestConfig 'Should have environment tag' $token 'tags.environment' 'equals' 1</maml:para>
+PS C:\&gt; $resourceId = '/subscriptions/179e669d-ba52-4df3-816f-efb8caa30241/resourceGroups/myRg/providers/Microsoft.Storage/storageAccounts/mystorageaccount'
+PS C:\&gt; $test = New-ARTPropertyCountTestConfig 'Should have environment tag' $token $resourceId 'tags.environment' 'equals' 1</maml:para>
           <maml:para>&#x80;</maml:para>
-          <maml:para>Create a new instance of the PropertyCountTestConfig object by passing required parameters in the correct order "testName", "token", "property", "condition" and "count".</maml:para>
+          <maml:para>Create a new instance of the PropertyCountTestConfig object by passing parameters in the correct order "testName", "token", "resourceId", "property", "condition", and "count".</maml:para>
         </maml:introduction>
         <dev:code />
         <dev:remarks />
@@ -944,8 +948,7 @@ PS C:\&gt; $test = New-ARTPropertyCountTestConfig 'Should have environment tag' 
           <maml:name>condition</maml:name>
           <maml:description>
             <maml:para>The condition of the value comparison.
-Supported values are 'equals',
-            'notEquals', 'greater', 'less', 'greaterequal', 'lessequal'.</maml:para>
+Supported values are 'equals', 'notEquals', 'greater', 'less', 'greaterequal', 'lessequal'.</maml:para>
           </maml:description>
           <command:parameterValue required="true" variableLength="true">System.String</command:parameterValue>
         </command:parameter>
@@ -967,7 +970,7 @@ The property can contain up to one (1) instance of '[*]', which means it is an a
         <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="false" position="2" aliases="none">
           <maml:name>resourceId</maml:name>
           <maml:description>
-            <maml:para>The resource Id to check.</maml:para>
+            <maml:para>The resource ID to check.</maml:para>
           </maml:description>
           <command:parameterValue required="true" variableLength="true">System.String</command:parameterValue>
         </command:parameter>
@@ -981,7 +984,7 @@ The property can contain up to one (1) instance of '[*]', which means it is an a
         <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
           <maml:name>testName</maml:name>
           <maml:description>
-            <maml:para>Name of the pester test.</maml:para>
+            <maml:para>Name of the Pester test.</maml:para>
           </maml:description>
           <command:parameterValue required="true" variableLength="true">System.String</command:parameterValue>
         </command:parameter>
@@ -1004,7 +1007,7 @@ This is required to invoke the Azure Resource Manager REST APIs.</maml:para>
           <maml:name>valueType</maml:name>
           <maml:description>
             <maml:para>Type of the resource property value.
-Supported types are 'string', 'number','boolean'.</maml:para>
+Supported types are 'string', 'number', 'boolean'.</maml:para>
           </maml:description>
           <command:parameterValue required="true" variableLength="true">System.String</command:parameterValue>
         </command:parameter>
@@ -1030,8 +1033,7 @@ The cmdlet is not run.</maml:para>
         <maml:name>condition</maml:name>
         <maml:description>
           <maml:para>The condition of the value comparison.
-Supported values are 'equals',
-            'notEquals', 'greater', 'less', 'greaterequal', 'lessequal'.</maml:para>
+Supported values are 'equals', 'notEquals', 'greater', 'less', 'greaterequal', 'lessequal'.</maml:para>
         </maml:description>
         <command:parameterValue required="true" variableLength="true">System.String</command:parameterValue>
       </command:parameter>
@@ -1053,7 +1055,7 @@ The property can contain up to one (1) instance of '[*]', which means it is an a
       <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="false" position="2" aliases="none">
         <maml:name>resourceId</maml:name>
         <maml:description>
-          <maml:para>The resource Id to check.</maml:para>
+          <maml:para>The resource ID to check.</maml:para>
         </maml:description>
         <command:parameterValue required="true" variableLength="true">System.String</command:parameterValue>
       </command:parameter>
@@ -1067,7 +1069,7 @@ The property can contain up to one (1) instance of '[*]', which means it is an a
       <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
         <maml:name>testName</maml:name>
         <maml:description>
-          <maml:para>Name of the pester test.</maml:para>
+          <maml:para>Name of the Pester test.</maml:para>
         </maml:description>
         <command:parameterValue required="true" variableLength="true">System.String</command:parameterValue>
       </command:parameter>
@@ -1090,7 +1092,7 @@ This is required to invoke the Azure Resource Manager REST APIs.</maml:para>
         <maml:name>valueType</maml:name>
         <maml:description>
           <maml:para>Type of the resource property value.
-Supported types are 'string', 'number','boolean'.</maml:para>
+Supported types are 'string', 'number', 'boolean'.</maml:para>
         </maml:description>
         <command:parameterValue required="true" variableLength="true">System.String</command:parameterValue>
       </command:parameter>
@@ -1124,10 +1126,10 @@ The cmdlet is not run.</maml:para>
         <maml:title>--------- Example 1 ---------</maml:title>
         <maml:introduction>
           <maml:para>PS C:\&gt; $token = ConvertFrom-SecureString (Get-AzAccessToken -ResourceUrl 'https://management.azure.com/').token -AsPlainText
-PS C:\&gt; $resourceId ='/subscriptions/179e669d-ba52-4df3-816f-efb8caa30241/resourceGroups/myrg/providers/Microsoft.Storage/storageAccounts/mystorage'
+PS C:\&gt; $resourceId = '/subscriptions/179e669d-ba52-4df3-816f-efb8caa30241/resourceGroups/myrg/providers/Microsoft.Storage/storageAccounts/mystorage'
 PS C:\&gt; $test = New-ARTPropertyValueTestConfig 'Network ACL Default Action Should be Deny' $token $resourceId 'string' 'properties.networkAcls.defaultAction' 'equals' 'Deny'</maml:para>
           <maml:para>&#x80;</maml:para>
-          <maml:para>Create a new instance of the PropertyValueTestConfig object by passing required parameters in the correct order "testName", "token", "resourceId", "valueType", "property", "condition" and "value".</maml:para>
+          <maml:para>Create a new instance of the PropertyValueTestConfig object by passing parameters in the correct order "testName", "token", "resourceId", "valueType", "property", "condition", and "value".</maml:para>
         </maml:introduction>
         <dev:code />
         <dev:remarks />
@@ -1136,12 +1138,12 @@ PS C:\&gt; $test = New-ARTPropertyValueTestConfig 'Network ACL Default Action Sh
         <maml:title>--------- Example 2 ---------</maml:title>
         <maml:introduction>
           <maml:para>PS C:\&gt; $token = ConvertFrom-SecureString (Get-AzAccessToken -ResourceUrl 'https://management.azure.com/').token -AsPlainText
-PS C:\&gt; $resourceId ='/subscriptions/179e669d-ba52-4df3-816f-efb8caa30241/resourceGroups/myrg/providers/Microsoft.Network/networkSecurityGroups/mynsg'
+PS C:\&gt; $resourceId = '/subscriptions/179e669d-ba52-4df3-816f-efb8caa30241/resourceGroups/myrg/providers/Microsoft.Network/networkSecurityGroups/mynsg'
 PS C:\&gt; $test = New-ARTPropertyValueTestConfig 'Destination port range must not be wildcard(*)' $token $resourceId 'string' 'properties.securityRules[*].properties.destinationPortRange' 'notequals' '*'</maml:para>
           <maml:para>&#x80;</maml:para>
-          <maml:para>Create a new instance of the PropertyValueTestConfig object by passing required parameters in the correct order "testName", "token", "resourceId", "valueType", "property", "condition" and "value".
-The property contains '[\ ]', which means it is an array property and each element of the array will be checked individually.
-Note there can only be up to one (1) '[\ ]' in the property path.</maml:para>
+          <maml:para>Create a new instance of the PropertyValueTestConfig object by passing parameters in the correct order "testName", "token", "resourceId", "valueType", "property", "condition", and "value".
+The property contains '[*]', which means it is an array property and each element of the array will be checked individually.
+Note there can only be up to one (1) '[*]' in the property path.</maml:para>
         </maml:introduction>
         <dev:code />
         <dev:remarks />
@@ -1196,14 +1198,14 @@ Supported values are 'exists' and 'notExists'.</maml:para>
         <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="false" position="2" aliases="none">
           <maml:name>resourceId</maml:name>
           <maml:description>
-            <maml:para>The resource Id to check.</maml:para>
+            <maml:para>The resource ID to check.</maml:para>
           </maml:description>
           <command:parameterValue required="true" variableLength="true">System.String</command:parameterValue>
         </command:parameter>
         <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
           <maml:name>testName</maml:name>
           <maml:description>
-            <maml:para>Name of the pester test.</maml:para>
+            <maml:para>Name of the Pester test.</maml:para>
           </maml:description>
           <command:parameterValue required="true" variableLength="true">System.String</command:parameterValue>
         </command:parameter>
@@ -1253,14 +1255,14 @@ Supported values are 'exists' and 'notExists'.</maml:para>
       <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="false" position="2" aliases="none">
         <maml:name>resourceId</maml:name>
         <maml:description>
-          <maml:para>The resource Id to check.</maml:para>
+          <maml:para>The resource ID to check.</maml:para>
         </maml:description>
         <command:parameterValue required="true" variableLength="true">System.String</command:parameterValue>
       </command:parameter>
       <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
         <maml:name>testName</maml:name>
         <maml:description>
-          <maml:para>Name of the pester test.</maml:para>
+          <maml:para>Name of the Pester test.</maml:para>
         </maml:description>
         <command:parameterValue required="true" variableLength="true">System.String</command:parameterValue>
       </command:parameter>
@@ -1319,12 +1321,11 @@ The resource provider's API version is required in this example because diagnost
         <maml:title>--------- Example 2 ---------</maml:title>
         <maml:introduction>
           <maml:para>PS C:\&gt; $token = ConvertFrom-SecureString (Get-AzAccessToken -ResourceUrl 'https://management.azure.com/').token -AsPlainText
-PS C:\&gt; $blobPrivateDNSARecordId = "/subscriptions/{0}/resourceGroups/{1}/providers/Microsoft.Network/privateDnsZones/privatelink.blob.core.windows.net/A/{2}" -f $privateDNSSubscriptionId, $privateDNSResourceGroup, $resourceName</maml:para>
-          <maml:para>&#x80;</maml:para>
-          <maml:para>PS C:\&gt; $test = New-ARTResourceExistenceTestConfig 'Private DNS Record for Blob PE must exist' $token $blobPrivateDNSARecordId 'exists'</maml:para>
+PS C:\&gt; $blobPrivateDNSARecordId = "/subscriptions/{0}/resourceGroups/{1}/providers/Microsoft.Network/privateDnsZones/privatelink.blob.core.windows.net/A/{2}" -f $privateDNSSubscriptionId, $privateDNSResourceGroup, $resourceName
+PS C:\&gt; $test = New-ARTResourceExistenceTestConfig 'Private DNS Record for Blob PE must exist' $token $blobPrivateDNSARecordId 'exists'</maml:para>
           <maml:para>&#x80;</maml:para>
           <maml:para>Create a new instance of the ResourceExistenceTestConfig object by passing required parameters in the correct order.
-It can be used to check if the A record for the Private Endpoint exists in the storage blob's private DNS zone.
+It can be used to check if the A record for the private endpoint exists in the storage blob's private DNS zone.
 The resource provider's API version is not required in this example because Private DNS zone A records are available in Azure resource graph.</maml:para>
         </maml:introduction>
         <dev:code />
@@ -1378,7 +1379,7 @@ The resource provider's API version is not required in this example because Priv
         <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
           <maml:name>testName</maml:name>
           <maml:description>
-            <maml:para>Name of the pester test.</maml:para>
+            <maml:para>Name of the Pester test.</maml:para>
           </maml:description>
           <command:parameterValue required="true" variableLength="true">System.String</command:parameterValue>
         </command:parameter>
@@ -1393,7 +1394,8 @@ This is required to invoke the Azure Resource Manager REST APIs.</maml:para>
         <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
           <maml:name>WhatIf</maml:name>
           <maml:description>
-            <maml:para>Runs the command in a mode that only reports what would happen without performing the actions.</maml:para>
+            <maml:para>Shows what would happen if the cmdlet runs.
+The cmdlet is not run.</maml:para>
           </maml:description>
           <command:parameterValue required="false" variableLength="true">System.Management.Automation.SwitchParameter</command:parameterValue>
         </command:parameter>
@@ -1424,7 +1426,7 @@ This is required to invoke the Azure Resource Manager REST APIs.</maml:para>
       <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
         <maml:name>testName</maml:name>
         <maml:description>
-          <maml:para>Name of the pester test.</maml:para>
+          <maml:para>Name of the Pester test.</maml:para>
         </maml:description>
         <command:parameterValue required="true" variableLength="true">System.String</command:parameterValue>
       </command:parameter>
@@ -1439,7 +1441,8 @@ This is required to invoke the Azure Resource Manager REST APIs.</maml:para>
       <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
         <maml:name>WhatIf</maml:name>
         <maml:description>
-          <maml:para>Runs the command in a mode that only reports what would happen without performing the actions.</maml:para>
+          <maml:para>Shows what would happen if the cmdlet runs.
+The cmdlet is not run.</maml:para>
         </maml:description>
         <command:parameterValue required="false" variableLength="true">System.Management.Automation.SwitchParameter</command:parameterValue>
       </command:parameter>
@@ -1451,7 +1454,7 @@ This is required to invoke the Azure Resource Manager REST APIs.</maml:para>
           <dev:name>TerraformPolicyRestrictionTestConfig</dev:name>
         </dev:type>
         <maml:description>
-          <maml:para>The output is an instance of the TerraformPolicyRestrictionTestConfig object, which contains the configuration for the Terraform policy restriction test. This object can be used to run thePester tests against the Azure Policy Restriction REST API.</maml:para>
+          <maml:para>The output is an instance of the TerraformPolicyRestrictionTestConfig object, which contains the configuration for the Terraform policy restriction test. This object can be used to run the Pester tests against the Azure Policy Restriction REST API.</maml:para>
         </maml:description>
       </command:returnValue>
     </command:returnValues>
@@ -1464,7 +1467,7 @@ This is required to invoke the Azure Resource Manager REST APIs.</maml:para>
       <command:example>
         <maml:title>--------- Example 1 ---------</maml:title>
         <maml:introduction>
-          <maml:para>#Must run az cli command to get the access token because Terraform only supports az cli authentication.
+          <maml:para># Must run az cli command to get the access token because Terraform only supports az cli authentication.
 PS C:\&gt; $token = $(az account get-access-token --resource 'https://management.azure.com/' | convertfrom-json).accessToken
 PS C:\&gt; $terraformDirectory = 'C:\Terraform\MyProject'
 PS C:\&gt; $violatingPolicies = @(
@@ -1475,7 +1478,7 @@ PS C:\&gt; $violatingPolicies = @(
     policyEffect = 'Deny'
   }
 )
-PS C:\&gt; $test = New-ARTTerraformPolicyRestrictionTestConfig 'Storage Account should violate deny policies' $token $terraformDirectory  $violatingPolicies</maml:para>
+PS C:\&gt; $test = New-ARTTerraformPolicyRestrictionTestConfig 'Storage Account should violate deny policies' $token $terraformDirectory $violatingPolicies</maml:para>
           <maml:para>&#x80;</maml:para>
           <maml:para>Create a new instance of the TerraformPolicyRestrictionTestConfig object by passing required parameters in the correct order "testName", "token", "terraformDirectory" and "policyViolation".</maml:para>
         </maml:introduction>
@@ -1524,8 +1527,8 @@ This value is used when the deployment scope is not at Resource Group level.</ma
         <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="false" position="3" aliases="none">
           <maml:name>deploymentTargetResourceId</maml:name>
           <maml:description>
-            <maml:para>The resource Id of the deployment target.
-For example, the subscription or resource group resource Id.</maml:para>
+            <maml:para>The resource ID of the deployment target.
+For example, the subscription or resource group resource ID.</maml:para>
           </maml:description>
           <command:parameterValue required="true" variableLength="true">System.String</command:parameterValue>
         </command:parameter>
@@ -1586,7 +1589,7 @@ Supported values are 'Failed' and 'Succeeded'.</maml:para>
         <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
           <maml:name>testName</maml:name>
           <maml:description>
-            <maml:para>Name of the pester test.</maml:para>
+            <maml:para>Name of the Pester test.</maml:para>
           </maml:description>
           <command:parameterValue required="true" variableLength="true">System.String</command:parameterValue>
         </command:parameter>
@@ -1628,8 +1631,8 @@ This value is used when the deployment scope is not at Resource Group level.</ma
       <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="false" position="3" aliases="none">
         <maml:name>deploymentTargetResourceId</maml:name>
         <maml:description>
-          <maml:para>The resource Id of the deployment target.
-For example, the subscription or resource group resource Id.</maml:para>
+          <maml:para>The resource ID of the deployment target.
+For example, the subscription or resource group resource ID.</maml:para>
         </maml:description>
         <command:parameterValue required="true" variableLength="true">System.String</command:parameterValue>
       </command:parameter>
@@ -1690,7 +1693,7 @@ Supported values are 'Failed' and 'Succeeded'.</maml:para>
       <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
         <maml:name>testName</maml:name>
         <maml:description>
-          <maml:para>Name of the pester test.</maml:para>
+          <maml:para>Name of the Pester test.</maml:para>
         </maml:description>
         <command:parameterValue required="true" variableLength="true">System.String</command:parameterValue>
       </command:parameter>
@@ -1760,7 +1763,7 @@ PS C:\&gt; $whatIfDeploymentTargetResourceId = '/subscriptions/179e669d-ba52-4df
 PS C:\&gt; $whatIfFailedTemplatePath = join-path $PSScriptRoot 'bad.bicep'
 PS C:\&gt; $test = New-ARTWhatIfDeploymentTestConfig 'Policy violating deployment should fail' $token $whatIfFailedTemplatePath $whatIfDeploymentTargetResourceId 'Failed' $violatingPolicies</maml:para>
           <maml:para>&#x80;</maml:para>
-          <maml:para>Create a new instance of the WhatIfDeploymentTestConfig object by passing required parameters in the correct order "testName", "token", "templateFilePath", "deploymentTargetResourceId", "requiredWhatIfStatus", "policyViolation".</maml:para>
+          <maml:para>Create a new instance of the WhatIfDeploymentTestConfig object by passing parameters in the correct order "testName", "token", "templateFilePath", "deploymentTargetResourceId", "requiredWhatIfStatus", and "policyViolation".</maml:para>
         </maml:introduction>
         <dev:code />
         <dev:remarks />
@@ -1806,7 +1809,7 @@ PS C:\&gt; $test = New-ARTWhatIfDeploymentTestConfig 'Policy violating deploymen
           <maml:name>OutputFormat</maml:name>
           <maml:description>
             <maml:para>The output format of the test result.
-Supported values are 'NUnitXml' and 'LegacyNUnitXML'</maml:para>
+Supported values are 'NUnitXml' and 'LegacyNUnitXML'.</maml:para>
           </maml:description>
           <command:parameterValue required="false" variableLength="true">System.String</command:parameterValue>
         </command:parameter>
@@ -1853,7 +1856,7 @@ This is the name of the Pester Describe block.</maml:para>
         <maml:name>OutputFormat</maml:name>
         <maml:description>
           <maml:para>The output format of the test result.
-Supported values are 'NUnitXml' and 'LegacyNUnitXML'</maml:para>
+Supported values are 'NUnitXml' and 'LegacyNUnitXML'.</maml:para>
         </maml:description>
         <command:parameterValue required="false" variableLength="true">System.String</command:parameterValue>
       </command:parameter>
@@ -1901,7 +1904,7 @@ This is the name of the Pester Describe block.</maml:para>
         <maml:title>--------- Example 1 ---------</maml:title>
         <maml:introduction>
           <maml:para>PS C:\&gt; $tests = @()
-PS C:\&gt; $resourceId ='/subscriptions/179e669d-ba52-4df3-816f-efb8caa30241/resourceGroups/myrg/providers/Microsoft.Storage/storageAccounts/mystorage'
+PS C:\&gt; $resourceId = '/subscriptions/179e669d-ba52-4df3-816f-efb8caa30241/resourceGroups/myrg/providers/Microsoft.Storage/storageAccounts/mystorage'
 PS C:\&gt; $token = ConvertFrom-SecureString (Get-AzAccessToken -ResourceUrl 'https://management.azure.com/').token -AsPlainText
 PS C:\&gt; $tests += New-ARTPropertyValueTestConfig 'Network ACL Default Action Should be Deny' $token $resourceId 'string' 'properties.networkAcls.defaultAction' 'equals' 'Deny'
 PS C:\&gt; $tests += New-ARTPropertyValueTestConfig 'Double Encryption must be enabled' $token $resourceId 'boolean' 'properties.encryption.requireInfrastructureEncryption' 'equals' $true
@@ -1910,7 +1913,7 @@ PS C:\&gt; $params = @{
   testTitle = 'Storage Account Configuration Test'
   contextTitle = 'Storage Configuration'
   testSuiteName = 'StorageAccountTest'
-  OutputFile = join-path $PSScriptRoot "TEST-Resource-Config-.$testSuiteName.XML"
+  OutputFile = join-path $PSScriptRoot "TEST-Resource-Config-$testSuiteName.XML"
   OutputFormat = 'NUnitXml'
 }
 PS C:\&gt; Test-ARTResourceConfiguration @params</maml:para>
