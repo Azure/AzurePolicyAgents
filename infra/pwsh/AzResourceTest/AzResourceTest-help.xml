@@ -172,10 +172,8 @@ This is required to invoke the Azure Resource Manager REST APIs.</maml:para>
       <command:example>
         <maml:title>--------- Example 1 ---------</maml:title>
         <maml:introduction>
-          <maml:para>```powershell
-PS C:\&gt; $token = ConvertFrom-SecureString (Get-AzAccessToken -ResourceUrl 'https://management.azure.com/').token -AsPlainText
-PS C:\&gt; Get-ARTResourceConfiguration -Scope "mySubscription" -Token $token -ScopeType "subscription" -resourceType "Microsoft.Compute/virtualMachines"
-```</maml:para>
+          <maml:para>PS C:\&gt; $token = ConvertFrom-SecureString (Get-AzAccessToken -ResourceUrl 'https://management.azure.com/').token -AsPlainText
+PS C:\&gt; Get-ARTResourceConfiguration -Scope "mySubscription" -Token $token -ScopeType "subscription" -resourceType "Microsoft.Compute/virtualMachines"</maml:para>
           <maml:para>&#x80;</maml:para>
           <maml:para>Get all the virtual machines in the subscription "mySubscription".</maml:para>
         </maml:introduction>
@@ -185,10 +183,8 @@ PS C:\&gt; Get-ARTResourceConfiguration -Scope "mySubscription" -Token $token -S
       <command:example>
         <maml:title>--------- Example 2 ---------</maml:title>
         <maml:introduction>
-          <maml:para>```powershell
-PS C:\&gt; $token = ConvertFrom-SecureString (Get-AzAccessToken -ResourceUrl 'https://management.azure.com/').token -AsPlainText
-PS C:\&gt; Get-ARTResourceConfiguration -ScopeType "tenant" -resourceType "Microsoft.Storage/storageAccounts" -Token $token -resourceIds '/subscriptions/179e669d-ba52-4df3-816f-efb8caa30241/resourceGroups/myRg/providers/Microsoft.Storage/storageAccounts/mystorageaccount'
-```</maml:para>
+          <maml:para>PS C:\&gt; $token = ConvertFrom-SecureString (Get-AzAccessToken -ResourceUrl 'https://management.azure.com/').token -AsPlainText
+PS C:\&gt; Get-ARTResourceConfiguration -ScopeType "tenant" -resourceType "Microsoft.Storage/storageAccounts" -Token $token -resourceIds '/subscriptions/179e669d-ba52-4df3-816f-efb8caa30241/resourceGroups/myRg/providers/Microsoft.Storage/storageAccounts/mystorageaccount'</maml:para>
           <maml:para>&#x80;</maml:para>
           <maml:para>Get a specific storage account by searching the resource ID in the tenant scope.</maml:para>
         </maml:introduction>
@@ -1471,8 +1467,7 @@ The cmdlet is not run.</maml:para>
       <command:example>
         <maml:title>--------- Example 1 ---------</maml:title>
         <maml:introduction>
-          <maml:para># Must run az cli command to get the access token because Terraform only supports az cli authentication.
-PS C:\&gt; $token = $(az account get-access-token --resource 'https://management.azure.com/' | convertfrom-json).accessToken
+          <maml:para>PS C:\&gt; $token = $(az account get-access-token --resource 'https://management.azure.com/' | convertfrom-json).accessToken
 PS C:\&gt; $terraformDirectory = 'C:\Terraform\MyProject'
 PS C:\&gt; $violatingPolicies = @(
   @{
@@ -1483,6 +1478,8 @@ PS C:\&gt; $violatingPolicies = @(
   }
 )
 PS C:\&gt; $test = New-ARTTerraformPolicyRestrictionTestConfig 'Storage Account should violate deny policies' $token $terraformDirectory $violatingPolicies</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Must run az cli command to get the access token because Terraform only supports az cli authentication.</maml:para>
           <maml:para>&#x80;</maml:para>
           <maml:para>Create a new instance of the TerraformPolicyRestrictionTestConfig object by passing required parameters in the correct order "testName", "token", "terraformDirectory" and "policyViolation".</maml:para>
         </maml:introduction>
