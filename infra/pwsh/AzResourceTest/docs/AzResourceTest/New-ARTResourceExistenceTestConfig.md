@@ -229,6 +229,3 @@ The output is an instance of the ResourceExistenceTestConfig object, which conta
 ## NOTES
 
 ## RELATED LINKS
-
-
-

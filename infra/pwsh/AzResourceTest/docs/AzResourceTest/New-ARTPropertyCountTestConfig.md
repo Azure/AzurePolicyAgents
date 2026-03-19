@@ -307,6 +307,3 @@ The output is an instance of the PropertyCountTestConfig object, which contains 
 ## NOTES
 
 ## RELATED LINKS
-
-
-
