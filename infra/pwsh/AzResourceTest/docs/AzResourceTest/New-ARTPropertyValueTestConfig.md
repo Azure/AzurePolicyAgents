@@ -52,6 +52,14 @@ Create a new instance of the PropertyValueTestConfig object by passing parameter
 The property contains '[*]', which means it is an array property and each element of the array will be checked individually.
 Note there can only be up to one (1) '[*]' in the property path.
 
+### Example 3
+
+PS C:\> $token = ConvertFrom-SecureString (Get-AzAccessToken -ResourceUrl 'https://management.azure.com/').token -AsPlainText
+PS C:\> $resourceId = '/subscriptions/179e669d-ba52-4df3-816f-efb8caa30241/resourceGroups/NetworkWatcherRG/providers/microsoft.network/networkwatchers/networkWatcher_australiaeast/flowlogs/vnet01-flowlog'
+PS C:\> $test = New-ARTPropertyValueTestConfig 'VNet Flow Log must be enabled in Australia East' -token $token -resourceId $resourceId -valueType 'boolean' -property 'properties.enabled' -condition 'equals' -value $true -apiVersion '2024-07-01'
+
+Create a new instance of the PropertyValueTestConfig object by specifying the -apiVersion parameter. In this example, the API version is explicitly specified as '2024-07-01'. When the -apiVersion parameter is specified, the cmdlet will make an ARM GET API call instead of searching the resource via Azure Resource Graph. This is useful when the resource you are looking for is not supported by Azure Resource Graph.
+
 ## PARAMETERS
 
 ### -apiVersion

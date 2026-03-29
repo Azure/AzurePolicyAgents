@@ -611,8 +611,8 @@ function getResourceConfig {
     Write-Verbose "[$(getCurrentUTCString)]: API Version is specified, get current configuration for: $resourceId via ARM Rest API" -verbose
     $config = getResourceViaARMAPI -resourceId $resourceId -apiVersion $apiVersion -token $token
     if (!$config) {
-      Write-Error "[$(getCurrentUTCString)]: Failed to get the current configuration for: $resourceId via ARM Rest API"
-      Exit 1
+      Write-warning "[$(getCurrentUTCString)]: Failed to get the current configuration for: $resourceId via ARM Rest API"
+      return $null
     }
   } else {
     Write-Verbose "[$(getCurrentUTCString)]: API Version is not specified, get current configuration for: $resourceId via Azure Resource Graph query" -verbose
@@ -665,16 +665,19 @@ function compareResourceConfiguration {
     #Get the actual configuration of the resource
     $getActualConfigParams = @{
       resourceId = $propertyValueTestConfig.resourceId
-      apiVersion = $propertyValueTestConfig.apiVersion
       token      = $propertyValueTestConfig.token
     }
     if ($propertyValueTestConfig.resourceType) {
       $getActualConfigParams.add('resourcetype', $propertyValueTestConfig.resourceType)
     }
-    if ($propertyValueTestConfig.apiversion) {
-      $getActualConfigParams.add('apiversion', $propertyValueTestConfig.apiversion)
+    if ($propertyValueTestConfig.apiVersion) {
+      $getActualConfigParams.add('apiVersion', $propertyValueTestConfig.apiVersion)
     }
     $actualConfig = getResourceConfig @getActualConfigParams
+    if ($actualConfig -eq $null) {
+      Write-Warning "[$(getCurrentUTCString)]: Failed to get the actual configuration for resource '$($propertyValueTestConfig.resourceId)'. The comparison result will be set to false."
+      return $false
+    }
     $comparisonResult = comparePropertyValue -actualConfig $actualConfig -desiredConfig $propertyValueTestConfig -verbose
   }
   if ($PSCmdlet.ParameterSetName -eq 'propertyCount') {
@@ -687,10 +690,14 @@ function compareResourceConfiguration {
     if ($propertyCountTestConfig.resourceType) {
       $getActualConfigParams.add('resourcetype', $propertyCountTestConfig.resourceType)
     }
-    if ($propertyCountTestConfig.apiversion) {
-      $getActualConfigParams.add('apiversion', $propertyCountTestConfig.apiversion)
+    if ($propertyCountTestConfig.apiVersion) {
+      $getActualConfigParams.add('apiVersion', $propertyCountTestConfig.apiVersion)
     }
     $actualConfig = getResourceConfig @getActualConfigParams
+    if ($actualConfig -eq $null) {
+      Write-Warning "[$(getCurrentUTCString)]: Failed to get the actual configuration for resource '$($propertyCountTestConfig.resourceId)'. The comparison result will be set to false."
+      return $false
+    }
     $comparisonResult = comparePropertyCount -actualConfig $actualConfig -desiredConfig $propertyCountTestConfig -verbose
   }
   if ($PSCmdlet.ParameterSetName -eq 'policyState') {
