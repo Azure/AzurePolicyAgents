@@ -54,7 +54,7 @@ Create a new instance of the PropertyCountTestConfig object by passing parameter
 
 PS C:\> $token = ConvertFrom-SecureString (Get-AzAccessToken -ResourceUrl 'https://management.azure.com/').token -AsPlainText
 PS C:\> $resourceId = '/subscriptions/179e669d-ba52-4df3-816f-efb8caa30241/resourceGroups/NetworkWatcherRG/providers/microsoft.network/networkwatchers/networkWatcher_australiaeast/flowlogs/vnet01-flowlog'
-PS C:\> $test = New-ARTPropertyCountTestConfig 'VNet Flow Log (Australia East) Must Be Configured to use Log Analytics Workspace' -token $token -resourceId $resourceId -valueType 'boolean' -property 'properties.flowAnalyticsConfiguration.networkWatcherFlowAnalyticsConfiguration.workspaceResourceId' -condition 'equals' -count 1 -apiVersion '2024-07-01'
+PS C:\> $test = New-ARTPropertyCountTestConfig 'VNet Flow Log (Australia East) Must Be Configured to use Log Analytics Workspace' -token $token -resourceId $resourceId -property 'properties.flowAnalyticsConfiguration.networkWatcherFlowAnalyticsConfiguration.workspaceResourceId' -condition 'equals' -count 1 -apiVersion '2024-07-01'
 
 Create a new instance of the PropertyCountTestConfig object by specifying the -apiVersion parameter. In this example, the API version is explicitly specified as '2024-07-01'. When the -apiVersion parameter is specified, the cmdlet will make an ARM GET API call instead of searching the resource via Azure Resource Graph. This is useful when the resource you are looking for is not supported by Azure Resource Graph.
 
