@@ -4,7 +4,7 @@
   RootModule        = 'AzResourceTest.psm1'
 
   # Version number of this module.
-  ModuleVersion     = '2.0.0'
+  ModuleVersion     = '2.0.3'
 
   # Supported PSEditions
   # CompatiblePSEditions = @()
@@ -19,7 +19,7 @@
   CompanyName       = 'Microsoft Corporation'
 
   # Copyright statement for this module
-  Copyright         = 'Microsoft Corporation. All rights reserved.'
+  Copyright         = 'Copyright (c) Microsoft Corporation.'
 
   # Description of the functionality provided by this module
   Description       = 'Azure resource configuration tests using Pester and Azure Resource Graph'
@@ -103,10 +103,10 @@
       Tags                       = @('Azure', 'AzurePolicy', 'Pester')
 
       # A URL to the license for this module.
-      LicenseUri                 = ''
+      LicenseUri                 = 'https://github.com/Azure/AzurePolicyAgents/blob/main/LICENSE'
 
       # A URL to the main website for this project.
-      ProjectUri                 = ''
+      ProjectUri                 = 'https://github.com/Azure/AzurePolicyAgents/tree/main/infra/pwsh/AzResourceTest'
 
       # A URL to an icon representing this module.
       # IconUri = ''

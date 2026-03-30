@@ -1,7 +1,7 @@
 ﻿---
 document type: cmdlet
 external help file: AzResourceTest-help.xml
-HelpUri: ''
+HelpUri: 'https://github.com/Azure/AzurePolicyAgents/blob/main/infra/pwsh/AzResourceTest/docs/AzResourceTest/New-ARTResourceExistenceTestConfig.md'
 Locale: en-AU
 Module Name: AzResourceTest
 ms.date: 02/23/2026
@@ -49,11 +49,10 @@ The resource provider's API version is required in this example because diagnost
 
 PS C:\> $token = ConvertFrom-SecureString (Get-AzAccessToken -ResourceUrl 'https://management.azure.com/').token -AsPlainText
 PS C:\> $blobPrivateDNSARecordId = "/subscriptions/{0}/resourceGroups/{1}/providers/Microsoft.Network/privateDnsZones/privatelink.blob.core.windows.net/A/{2}" -f $privateDNSSubscriptionId, $privateDNSResourceGroup, $resourceName
-
 PS C:\> $test = New-ARTResourceExistenceTestConfig 'Private DNS Record for Blob PE must exist' $token $blobPrivateDNSARecordId 'exists'
 
 Create a new instance of the ResourceExistenceTestConfig object by passing required parameters in the correct order.
-It can be used to check if the A record for the Private Endpoint exists in the storage blob's private DNS zone.
+It can be used to check if the A record for the private endpoint exists in the storage blob's private DNS zone.
 The resource provider's API version is not required in this example because Private DNS zone A records are available in Azure resource graph.
 
 ## PARAMETERS
@@ -127,7 +126,7 @@ HelpMessage: ''
 
 ### -resourceId
 
-The resource Id to check.
+The resource ID to check.
 
 ```yaml
 Type: System.String
@@ -148,7 +147,7 @@ HelpMessage: ''
 
 ### -testName
 
-Name of the pester test.
+Name of the Pester test.
 
 ```yaml
 Type: System.String
@@ -230,6 +229,3 @@ The output is an instance of the ResourceExistenceTestConfig object, which conta
 ## NOTES
 
 ## RELATED LINKS
-
-{{ Fill in the related links here }}
-

@@ -58,4 +58,3 @@ template.
 ### [Test-ARTResourceConfiguration](Test-ARTResourceConfiguration.md)
 
 Invoke Azure resource tests by passing defined test cases.
-
