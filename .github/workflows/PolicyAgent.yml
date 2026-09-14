@@ -24,12 +24,12 @@ jobs:
       processedFilesCount: ${{ steps.deploy-policy.outputs.processedFilesCount }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@0717577d45739eb3c851188b29f50ed6c0b2194e # v2.8.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
       - name: Azure Login
-        uses: azure/login@cb79c773a3cfa27f31f25eb3f677781210c9ce3d # v1.6.1
+        uses: azure/login@7ddb5af1ef8758cf1353cf3b42f940aee27ba21c # v3.0.2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
@@ -49,7 +49,7 @@ jobs:
 
       - name: Deploy Azure Policy Definition and Assignment
         id: deploy-policy
-        uses: azure/powershell@53dd145408794f7e80f97cfcca04155c85234709 # v2.0.0
+        uses: azure/powershell@f5b8adcfff1904872c7b98d4012d4914d74b1a82 # v3.0.0
         with:
           azPSVersion: latest
           inlineScript: |
@@ -67,12 +67,12 @@ jobs:
       AZUREPS_HOST_ENVIRONMENT: "GitHubActions"
     steps:
       - name: Checkout repository
-        uses: actions/checkout@0717577d45739eb3c851188b29f50ed6c0b2194e # v2.8.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 # 
       - name: Azure Login
-        uses: azure/login@cb79c773a3cfa27f31f25eb3f677781210c9ce3d # v1.6.1
+        uses: azure/login@7ddb5af1ef8758cf1353cf3b42f940aee27ba21c # v3.0.2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
@@ -97,7 +97,7 @@ jobs:
         shell: bash
 
       - name: Policy Testing (AI Foundry Agent Service)
-        uses: azure/powershell@53dd145408794f7e80f97cfcca04155c85234709 # v2.0.0
+        uses: azure/powershell@f5b8adcfff1904872c7b98d4012d4914d74b1a82 # v3.0.0
         with:
           azPSVersion: latest
           inlineScript: |
