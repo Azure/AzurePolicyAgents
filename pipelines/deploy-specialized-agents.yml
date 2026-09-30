@@ -1,0 +1,236 @@
+# Azure DevOps Pipeline — Deploy Specialized Policy Agents
+# Equivalent of .github/workflows/deploy-specialized-agents.yml
+#
+# Manual-only pipeline (trigger: none, pr: none).
+# Deploys the Azure AI Foundry infrastructure via Bicep and then creates /
+# updates the four specialized policy-testing agents.
+#
+# Prerequisites
+# ─────────────
+#   1. Azure Resource Manager service connection configured for workload
+#      identity federation (name controlled by the azureServiceConnection var).
+#   2. Variable group 'policy-agents-dev' containing at minimum:
+#        AZURE_SUBSCRIPTION_ID  — subscription ID for the Bicep deployment scope
+#   3. The build agent must have Bicep CLI available, or the AzureResourceManager
+#      TemplateDeployment task will install it automatically.
+#
+# Post-deployment
+# ───────────────
+#   After a successful run, copy the agent IDs printed in the
+#   'Validate Deployment' job into the 'policy-agents-dev' variable group:
+#     DENY_AGENT_ID, AUDIT_AGENT_ID, DINE_AGENT_ID, MODIFY_AGENT_ID
+#   and set AGENT_ENDPOINT to the printed foundry endpoint.
+
+trigger: none
+pr: none
+
+parameters:
+  - name: agent_types
+    displayName: 'Agent types to deploy (comma-separated)'
+    type: string
+    default: 'deny,audit,deployIfNotExists,modify,instructionsAgent'
+
+  - name: update_existing
+    displayName: 'Update existing agents if they already exist'
+    type: boolean
+    default: false
+
+  - name: deployment_location
+    displayName: 'Azure region to deploy to (e.g. eastus, westeurope, australiaeast)'
+    type: string
+
+variables:
+  - group: policy-agents-dev
+  - name: azureServiceConnection
+    value: 'policy-agents'
+
+stages:
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Stage 1 — Deploy Azure AI Foundry infrastructure via Bicep
+  # ─────────────────────────────────────────────────────────────────────────────
+  - stage: DeployInfrastructure
+    displayName: 'Deploy Infrastructure'
+    jobs:
+      - job: DeployBicep
+        displayName: 'Deploy Single Foundry Infrastructure'
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - checkout: self
+
+          - task: AzureResourceManagerTemplateDeployment@3
+            name: deployBicep
+            displayName: 'Deploy agentsSetup.bicep'
+            inputs:
+              deploymentScope: Subscription
+              azureResourceManagerConnection: $(azureServiceConnection)
+              subscriptionId: $(AZURE_SUBSCRIPTION_ID)
+              location: ${{ parameters.deployment_location }}
+              templateLocation: Linked artifact
+              csmFile: ./infra/bicep/agentsSetup.bicep
+              csmParametersFile: ./infra/bicep/agentsSetup.bicepparam
+              overrideParameters: -location ${{ parameters.deployment_location }}
+              deploymentMode: Incremental
+              deploymentOutputs: bicepOutputs
+
+          - bash: |
+              echo "Bicep deployment outputs: $BICEP_OUTPUTS"
+
+              AGENT_ENDPOINT=$(echo "$BICEP_OUTPUTS" | python3 -c "
+              import json, sys
+              d = json.load(sys.stdin)
+              print(d.get('agentEndpoint', {}).get('value', ''))" 2>/dev/null || echo "")
+
+              MODEL_NAME=$(echo "$BICEP_OUTPUTS" | python3 -c "
+              import json, sys
+              d = json.load(sys.stdin)
+              print(d.get('modelDeploymentName', {}).get('value', 'gpt-5.4'))" 2>/dev/null || echo "gpt-5.4")
+
+              RESOURCE_GROUP=$(echo "$BICEP_OUTPUTS" | python3 -c "
+              import json, sys
+              d = json.load(sys.stdin)
+              print(d.get('resourceGroupName', {}).get('value', ''))" 2>/dev/null || echo "")
+
+              AI_HUB=$(echo "$BICEP_OUTPUTS" | python3 -c "
+              import json, sys
+              d = json.load(sys.stdin)
+              print(d.get('aiHubName', {}).get('value', ''))" 2>/dev/null || echo "")
+
+              AI_PROJECT=$(echo "$BICEP_OUTPUTS" | python3 -c "
+              import json, sys
+              d = json.load(sys.stdin)
+              print(d.get('aiProjectName', {}).get('value', ''))" 2>/dev/null || echo "")
+
+              echo "Agent Endpoint:    $AGENT_ENDPOINT"
+              echo "Model Deployment:  $MODEL_NAME"
+              echo "Resource Group:    $RESOURCE_GROUP"
+              echo "AI Hub:            $AI_HUB"
+              echo "AI Project:        $AI_PROJECT"
+
+              echo "##vso[task.setvariable variable=agentEndpoint;isOutput=true]$AGENT_ENDPOINT"
+              echo "##vso[task.setvariable variable=modelDeploymentName;isOutput=true]$MODEL_NAME"
+              echo "##vso[task.setvariable variable=resourceGroupName;isOutput=true]$RESOURCE_GROUP"
+              echo "##vso[task.setvariable variable=aiHubName;isOutput=true]$AI_HUB"
+              echo "##vso[task.setvariable variable=aiProjectName;isOutput=true]$AI_PROJECT"
+            name: parseBicepOutputs
+            displayName: 'Parse Bicep Deployment Outputs'
+            env:
+              BICEP_OUTPUTS: $(bicepOutputs)
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Stage 2 — Deploy the five specialized AI agents into the Foundry project
+  # ─────────────────────────────────────────────────────────────────────────────
+  - stage: DeployAgents
+    displayName: 'Deploy Specialized Agents'
+    dependsOn: DeployInfrastructure
+    variables:
+      agentEndpoint:       $[ stageDependencies.DeployInfrastructure.DeployBicep.outputs['parseBicepOutputs.agentEndpoint'] ]
+      modelDeploymentName: $[ stageDependencies.DeployInfrastructure.DeployBicep.outputs['parseBicepOutputs.modelDeploymentName'] ]
+      resourceGroupName:   $[ stageDependencies.DeployInfrastructure.DeployBicep.outputs['parseBicepOutputs.resourceGroupName'] ]
+      aiHubName:           $[ stageDependencies.DeployInfrastructure.DeployBicep.outputs['parseBicepOutputs.aiHubName'] ]
+      aiProjectName:       $[ stageDependencies.DeployInfrastructure.DeployBicep.outputs['parseBicepOutputs.aiProjectName'] ]
+    jobs:
+      - job: DeployAgents
+        displayName: 'Deploy 5 Specialized Agents to Single Foundry'
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - checkout: self
+
+          - task: AzurePowerShell@5
+            name: deploySpecializedAgents
+            displayName: 'Deploy Specialized Agents'
+            inputs:
+              azureSubscription: $(azureServiceConnection)
+              ScriptType: InlineScript
+              Inline: |
+                $WarningPreference = 'SilentlyContinue'
+
+                # Install required PowerShell modules
+                Write-Host "📦 Installing Az.Accounts module..."
+                Install-Module -Name Az.Accounts -Force -AllowClobber
+
+                $agentTypes    = "${{ parameters.agent_types }}"
+                $updateExisting = [System.Convert]::ToBoolean("${{ parameters.update_existing }}")
+                $projectEndpoint = "$(agentEndpoint)"
+                $modelName       = "$(modelDeploymentName)"
+
+                Write-Host "🚀 Deploying specialized policy agents"
+                Write-Host "  Endpoint:       $projectEndpoint"
+                Write-Host "  Model:          $modelName"
+                Write-Host "  Agent types:    $agentTypes"
+                Write-Host "  Update existing: $updateExisting"
+
+                $scriptArgs = @{
+                  ProjectEndpoint     = $projectEndpoint
+                  ModelDeploymentName = $modelName
+                  AgentTypes          = $agentTypes
+                }
+                if ($updateExisting) { $scriptArgs.UpdateExisting = $true }
+
+                Set-Location ./infra/bicep
+                $output = & ../../scripts/deploySpecializedAgents.ps1 @scriptArgs
+
+                # Parse agent IDs and emit as ADO output variables
+                $output | ForEach-Object {
+                  if ($_ -match "^DENY_AGENT_ID=(.+)$") {
+                    Write-Host "##vso[task.setvariable variable=denyAgentId;isOutput=true]$($Matches[1])"
+                  } elseif ($_ -match "^AUDIT_AGENT_ID=(.+)$") {
+                    Write-Host "##vso[task.setvariable variable=auditAgentId;isOutput=true]$($Matches[1])"
+                  } elseif ($_ -match "^DINE_AGENT_ID=(.+)$") {
+                    Write-Host "##vso[task.setvariable variable=dineAgentId;isOutput=true]$($Matches[1])"
+                  } elseif ($_ -match "^MODIFY_AGENT_ID=(.+)$") {
+                    Write-Host "##vso[task.setvariable variable=modifyAgentId;isOutput=true]$($Matches[1])"
+                  } elseif ($_ -match "^INSTRUCTIONS_AGENT_ID=(.+)$") {
+                    Write-Host "##vso[task.setvariable variable=instructionsAgentId;isOutput=true]$($Matches[1])"
+                  }
+                }
+              azurePowerShellVersion: LatestVersion
+
+      # ── Validate deployment and print next steps ──────────────────────────────
+      - job: ValidateDeployment
+        displayName: 'Validate Deployment'
+        dependsOn: DeployAgents
+        condition: succeeded()
+        pool:
+          vmImage: ubuntu-latest
+        variables:
+          denyAgentId:          $[ dependencies.DeployAgents.outputs['deploySpecializedAgents.denyAgentId'] ]
+          auditAgentId:         $[ dependencies.DeployAgents.outputs['deploySpecializedAgents.auditAgentId'] ]
+          dineAgentId:          $[ dependencies.DeployAgents.outputs['deploySpecializedAgents.dineAgentId'] ]
+          modifyAgentId:        $[ dependencies.DeployAgents.outputs['deploySpecializedAgents.modifyAgentId'] ]
+          instructionsAgentId:  $[ dependencies.DeployAgents.outputs['deploySpecializedAgents.instructionsAgentId'] ]
+        steps:
+          - bash: |
+              echo "✅ Single Azure AI Foundry Deployment with 5 Specialized Agents"
+              echo "================================================================="
+              echo ""
+              echo "🏢 Infrastructure:"
+              echo "  Foundry Endpoint:  $(agentEndpoint)"
+              echo "  AI Hub:            $(aiHubName)"
+              echo "  AI Project:        $(aiProjectName)"
+              echo "  Model:             $(modelDeploymentName)"
+              echo "  Resource Group:    $(resourceGroupName)"
+              echo ""
+              echo "🤖 Deployed Specialized Agent IDs:"
+              echo "  Deny Agent ID:          $(denyAgentId)"
+              echo "  Audit Agent ID:         $(auditAgentId)"
+              echo "  DINE Agent ID:          $(dineAgentId)"
+              echo "  Modify Agent ID:        $(modifyAgentId)"
+              echo "  Instructions Agent ID:  $(instructionsAgentId)"
+              echo ""
+              echo "📝 Next Steps — update the 'policy-agents-dev' variable group with:"
+              echo "  AGENT_ENDPOINT  = $(agentEndpoint)"
+              echo "  DENY_AGENT_ID           = $(denyAgentId)"
+              echo "  AUDIT_AGENT_ID          = $(auditAgentId)"
+              echo "  DINE_AGENT_ID           = $(dineAgentId)"
+              echo "  MODIFY_AGENT_ID         = $(modifyAgentId)"
+              echo "  INSTRUCTIONS_AGENT_ID   = $(instructionsAgentId)"
+            displayName: 'Print Deployment Summary and Next Steps'
+            env:
+              agentEndpoint:       $(agentEndpoint)
+              modelDeploymentName: $(modelDeploymentName)
+              resourceGroupName:   $(resourceGroupName)
+              aiHubName:           $(aiHubName)
+              aiProjectName:       $(aiProjectName)

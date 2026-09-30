@@ -1,0 +1,202 @@
+{
+  "name": "diagnostic-vnet",
+  "type": "Microsoft.Authorization/policyDefinitions",
+  "apiVersion": "2021-06-01",
+  "scope": null,
+  "properties": {
+    "displayName": "Configure diagnostic settings for Virtual Networks to Log Analytics workspace",
+    "policyType": "Custom",
+    "mode": "Indexed",
+    "description": "Deploys the diagnostic settings for Virtual Networks to stream resource logs to a Log Analytics workspace when any Virtual Network which is missing this diagnostic settings is created or updated.",
+    "metadata": {
+      "category": "Network",
+      "version": "1.0.0",
+      "source": "BSOD Hackathon"
+    },
+    "parameters": {
+      "allMetricsRetentionDays": {
+        "type": "String",
+        "metadata": {
+          "description": "Setting for the Retention days in allMetrics",
+          "displayName": "allMetrics - Retention Days"
+        },
+        "defaultValue": "0"
+      },
+      "allMetrics": {
+        "type": "String",
+        "metadata": {
+          "description": "Whether to stream allMetrics logs to the Log Analytics workspace - True or False",
+          "displayName": "allMetrics - Enabled"
+        },
+        "allowedValues": ["True", "False"],
+        "defaultValue": "True"
+      },
+      "diagnosticsSettingName": {
+        "type": "String",
+        "metadata": {
+          "description": "Name of the diagnostic settings.",
+          "displayName": "Setting name"
+        },
+        "defaultValue": "vnet-diagnostics-policy"
+      },
+      "effect": {
+        "type": "String",
+        "metadata": {
+          "description": "Enable or disable the execution of the policy",
+          "displayName": "Effect"
+        },
+        "allowedValues": ["DeployIfNotExists", "AuditIfNotExists", "Disabled"],
+        "defaultValue": "DeployIfNotExists"
+      },
+      "logAnalytics": {
+        "type": "String",
+        "metadata": {
+          "assignPermissions": true,
+          "description": "Specify the Log Analytics workspace the VNet should be connected to.",
+          "displayName": "Log Analytics workspace",
+          "strongType": "omsWorkspace"
+        },
+        "defaultValue": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-monitoring/providers/Microsoft.OperationalInsights/workspaces/law-monitoring"
+      },
+      "vmProtectionAlerts": {
+        "type": "String",
+        "metadata": {
+          "description": "Whether to stream vmProtectionAlerts logs to the Log Analytics workspace - True or False",
+          "displayName": "vmProtectionAlerts - Enabled"
+        },
+        "allowedValues": ["True", "False"],
+        "defaultValue": "False"
+      }
+    },
+    "policyRule": {
+      "if": {
+        "allOf": [
+          {
+            "field": "type",
+            "equals": "Microsoft.Network/virtualNetworks"
+          },
+          {
+            "field": "location",
+            "in": ["australiaeast", "australiasoutheast"]
+          }
+        ]
+      },
+      "then": {
+        "effect": "[parameters('effect')]",
+        "details": {
+          "type": "Microsoft.Insights/diagnosticSettings",
+          "name": "[parameters('diagnosticsSettingName')]",
+          "evaluationDelay": "AfterProvisioning",
+          "existenceCondition": {
+            "allOf": [
+              {
+                "field": "Microsoft.Insights/diagnosticSettings/metrics[*].enabled",
+                "equals": "[parameters('allMetrics')]"
+              },
+              {
+                "field": "Microsoft.Insights/diagnosticSettings/logs[*].enabled", 
+                "equals": "[parameters('vmProtectionAlerts')]"
+              },
+              {
+                "field": "Microsoft.Insights/diagnosticSettings/workspaceId",
+                "notEquals": ""
+              }
+            ]
+          },
+          "roleDefinitionIds": [
+            "/providers/Microsoft.Authorization/roleDefinitions/749f88d5-cbae-40b8-bcfc-e573ddc772fa",
+            "/providers/Microsoft.Authorization/roleDefinitions/92aaf0da-9dab-42b6-94a3-d43ce8d16293"
+          ],
+          "deployment": {
+            "properties": {
+              "mode": "Incremental",
+              "template": {
+                "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                "contentVersion": "1.0.0.0",
+                "parameters": {
+                  "allMetricsRetentionDays": {
+                    "type": "string"
+                  },
+                  "allMetrics": {
+                    "type": "string"
+                  },
+                  "diagnosticsSettingName": {
+                    "type": "string"
+                  },
+                  "location": {
+                    "type": "string"
+                  },
+                  "logAnalytics": {
+                    "type": "string"
+                  },
+                  "resourceName": {
+                    "type": "string"
+                  },
+                  "vmProtectionAlerts": {
+                    "type": "string"
+                  }
+                },
+                "resources": [
+                  {
+                    "type": "Microsoft.Network/virtualNetworks/providers/diagnosticSettings",
+                    "apiVersion": "2021-05-01-preview",
+                    "name": "[concat(parameters('resourceName'), '/Microsoft.Insights/', parameters('diagnosticsSettingName'))]",
+                    "location": "[parameters('location')]",
+                    "properties": {
+                      "workspaceId": "[parameters('logAnalytics')]",
+                      "logs": [
+                        {
+                          "category": "VMProtectionAlerts",
+                          "enabled": "[parameters('vmProtectionAlerts')]",
+                          "retentionPolicy": {
+                            "enabled": false,
+                            "days": 0
+                          }
+                        }
+                      ],
+                      "metrics": [
+                        {
+                          "category": "AllMetrics",
+                          "enabled": "[parameters('allMetrics')]",
+                          "retentionPolicy": {
+                            "enabled": false,
+                            "days": "[int(parameters('allMetricsRetentionDays'))]"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "outputs": {},
+                "variables": {}
+              },
+              "parameters": {
+                "allMetricsRetentionDays": {
+                  "value": "[parameters('allMetricsRetentionDays')]"
+                },
+                "allMetrics": {
+                  "value": "[parameters('allMetrics')]"
+                },
+                "diagnosticsSettingName": {
+                  "value": "[parameters('diagnosticsSettingName')]"
+                },
+                "location": {
+                  "value": "[field('location')]"
+                },
+                "logAnalytics": {
+                  "value": "[parameters('logAnalytics')]"
+                },
+                "resourceName": {
+                  "value": "[field('name')]"
+                },
+                "vmProtectionAlerts": {
+                  "value": "[parameters('vmProtectionAlerts')]"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

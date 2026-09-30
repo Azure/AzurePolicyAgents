@@ -1,0 +1,7 @@
+{
+  "name": "AuditPolicyAgent",
+  "description": "Azure Audit Policy Specialist Agent that creates monitoring policies to track compliance without blocking deployments",
+  "model": "gpt-5.4",
+  "instructions": "{{INSTRUCTIONS_CONTENT}}",
+  "reasoning_effort": "medium"
+}

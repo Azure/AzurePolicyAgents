@@ -1,115 +1,356 @@
-# Azure Policy Agent - Getting Started Guide
+# Azure Policy AI Agent Testing Framework - Getting Started Guide
 
 ## Overview
 
-The Azure Policy Agent is a GitHub Action workflow that automates the deployment and testing of Azure Policy definitions. It deploys policy definitions to Azure and uses Azure AI Foundry agents to generate and execute test scenarios to validate policy behavior.
+The Azure Policy AI Agent Testing Framework is an automated CI/CD pipeline — available for both **GitHub Actions** and **Azure DevOps** — that tests Azure Policy definitions across all effect types. It uses five specialized AI agents in Azure AI Foundry—four experts in specific policy effect types (deny, audit, modify, deployIfNotExists) plus an Instructions Maintenance Agent that analyses failures and automatically improves agent instructions—to generate test scripts, execute them in Azure, and provide detailed analysis.
+
+This framework transforms manual policy testing into an autonomous validation pipeline, reducing testing time from hours to minutes while ensuring comprehensive coverage and zero resource leakage.
 
 ## Prerequisites
 
+This framework uses two separate Azure identities. Keeping them separate follows least privilege: the broad deploy-time permissions live on a bootstrap identity that is only used once, while the day-to-day test workflows run as a managed identity with a narrower role set.
+
+| Identity | Roles (scope) | Purpose |
+|----------|---------------|---------|
+| Bootstrap service principal | Contributor, User Access Administrator (subscription) | One-time deployment of the framework infrastructure (`agentsSetup.bicep`). |
+| Runtime managed identity (UMI) | Contributor, Resource Policy Contributor, Policy Insights Data Writer, Role Based Access Control Administrator (subscription); Azure AI Developer (resource group) | Authenticates the runtime test pipelines (GitHub Actions or Azure DevOps) that create policies, deploy test resources, and call the AI agents. |
+
 Before you begin, you'll need:
 
-- An Azure subscription with Owner permissions
-- Azure CLI or PowerShell installed
-- A GitHub repository set up as a template or fork of this repository
+- An Azure subscription where you can create a service principal and assign it the **Contributor** and **User Access Administrator** roles at subscription scope. These two roles are the least-privilege set required to deploy the infrastructure.
+- Azure CLI and PowerShell installed locally
+- A **GitHub** repository **or** an **Azure DevOps** project hosting this code
+- Basic understanding of Azure Policy and either GitHub Actions or Azure DevOps Pipelines
 
-## Setup Instructions
+## Quick Start
 
-### 1. Create Repository from Template
+Setup has two parts: **Common Setup** (the shared Azure identity used to deploy),
+then **one** CI-specific track — either **GitHub Actions Setup** or **Azure
+DevOps Setup**. Complete Common Setup first, then follow only the section that
+matches your CI system.
 
-First, create a new repository from this template:
+---
 
-![Create template repo](media/template_repo.png)
-![Create template repo](media/template_repo_2.png)
+## Common Setup (both CI systems)
 
-### 2. Deploy Azure AI Infrastructure
+### Step 1: Get the Repository
 
-Deploy the required Azure AI infrastructure using the Bicep templates. This single deployment will create all necessary resources including Azure AI Foundry project, AI agents, and user-assigned managed identity.
+**GitHub** — create a new repository from this template:
+
+1. Click **"Use this template"** button at the top of the repository
+2. Select **"Create a new repository"**
+3. Choose your organization/username
+4. Name your repository (e.g., `my-policy-testing`)
+5. Select **Public** or **Private**
+6. Click **"Create repository"**
+
+**Azure DevOps** — import this repository into Azure Repos (**Repos → Import a
+repository**), or point an Azure DevOps pipeline at your GitHub copy. The
+ready-made pipeline definitions live in the `pipelines/` folder.
+
+### Step 2: Create the Bootstrap Service Principal
+
+Both CI systems authenticate to Azure with **workload identity federation**
+(passwordless). Create the bootstrap identity and grant it the two least-privilege
+roles here; you add the CI-specific federated credential in your chosen track
+below.
+
+```bash
+# Login to Azure
+az login
+az account set --subscription "Your-Subscription-Name-or-ID"
+
+# IDs needed later
+SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+TENANT_ID=$(az account show --query tenantId -o tsv)
+
+# Create the app registration and its service principal (OIDC only - no client secret)
+APP_ID=$(az ad app create --display-name "sp-policy-agents-bootstrap" --query appId -o tsv)
+az ad sp create --id "$APP_ID"
+
+# Assign the two least-privilege roles the deployment needs at subscription scope.
+#   Contributor               - deploy the AI Foundry, Log Analytics, App Insights
+#                               and the runtime managed identity.
+#   User Access Administrator - create the role assignments defined in
+#                               agentsSetup.bicep, including granting the runtime
+#                               managed identity its RBAC roles.
+az role assignment create --assignee "$APP_ID" --role "Contributor" --scope "/subscriptions/$SUBSCRIPTION_ID"
+az role assignment create --assignee "$APP_ID" --role "User Access Administrator" --scope "/subscriptions/$SUBSCRIPTION_ID"
+
+# Identity values you'll need in the following steps
+echo "AZURE_CLIENT_ID=$APP_ID"
+echo "AZURE_TENANT_ID=$TENANT_ID"
+echo "AZURE_SUBSCRIPTION_ID=$SUBSCRIPTION_ID"
+```
+
+This bootstrap service principal is only used to deploy the infrastructure.
+Afterwards the runtime pipelines authenticate as the user-assigned managed
+identity (UMI) created by the deployment.
+
+### What the Deployment Creates
+
+Deploying `agentsSetup.bicep` (via your CI track below, or manually) provisions:
+
+- Azure AI Foundry project (single project for all agents)
+- Five specialized policy testing agents (Deny, Audit, DINE, Modify, Instructions Maintenance)
+- Azure AI Services with GPT-5.4 deployment
+- Log Analytics workspace for monitoring
+- Bing Search connection for grounding
+- The runtime managed identity (UMI) and its RBAC assignments
+
+#### Manual deployment (optional, CI-agnostic)
 
 ```powershell
-# Login to Azure and set the subscription context
+# Login to Azure
 Connect-AzAccount
+Set-AzContext -SubscriptionId "your-subscription-id"
 
-# Set the subscription ID - replace with your actual subscription ID
-$SubscriptionId = "your-subscription-id"
-Set-AzContext -SubscriptionId $SubscriptionId
+# Deploy infrastructure
+$deployment = New-AzSubscriptionDeployment `
+  -Name "PolicyAgentInfra-$(Get-Date -Format 'yyyyMMddHHmm')" `
+  -Location "<your-azure-region>" `
+  -TemplateFile "./infra/bicep/agentsSetup.bicep" `
+  -TemplateParameterFile "./infra/bicep/agentsSetup.bicepparam" `
+  -Verbose
 
-$AzureDeploymentLocation = "swedencentral"
-$AzurePolicyAgentDeployment = New-AzSubscriptionDeployment `
-                            -Name "AzurePolicyAgentDeployment" `
-                            -Location $AzureDeploymentLocation  `
-                            -TemplateFile './infra/bicep/agentsSetup.bicep' `
-                            -TemplateParameterFile './infra/bicep/agentsSetup.bicepparam' `
-                            -Verbose
+# Display outputs
+Write-Host "`n=== Deployment Outputs ===" -ForegroundColor Green
+Write-Host "Agent Endpoint: $($deployment.Outputs.agentEndpoint.Value)"
+Write-Host "Model Deployment: $($deployment.Outputs.agentModelDeploymentName.Value)"
+Write-Host "Resource Group: $($deployment.Outputs.resourceGroupName.Value)"
+
+# Deploy the five specialized agents
+& ./scripts/deploySpecializedAgents.ps1 `
+  -ProjectEndpoint $deployment.Outputs.agentEndpoint.Value `
+  -ModelDeploymentName $deployment.Outputs.agentModelDeploymentName.Value `
+  -AgentTypes "deny,audit,deployIfNotExists,modify,instructionsAgent"
 ```
 
-### 3. Create and configure the Azure Policy Agent
+---
 
-```powershell
-# Installing Metro-AI Powershell module for declarative management of Azure AI Agent (and to bypass current limmitations of deploymentScripts)
+## GitHub Actions Setup
 
-Install-Module -Name Metro.AI -Force
+Complete **Common Setup** first. All commands reuse the `APP_ID`,
+`SUBSCRIPTION_ID` and `TENANT_ID` values from Common Setup Step 2.
 
-# Setting Metro AI agent context using the deployment outputs
+### Step 1: Add the Repository's Federated Credential
 
-Set-MetroAIContext -Endpoint $AzurePolicyAgentDeployment.Outputs.agentEndpoint.value -ApiType Agent
+```bash
+REPO_OWNER="your-github-org"     # Replace with your GitHub org/username
+REPO_NAME="my-policy-testing"    # Replace with your repository name
+GH_ENVIRONMENT="dev"             # Must match the environment the deploy workflow runs in
 
-# Creating the Azure Policy Agent using the provided JSON definition
-
-$AgentDefinition = Invoke-RestMethod -uri "https://gist.githubusercontent.com/krnese/c4ee2c9db19cdd09028d3e7da4ff8141/raw/4507b8cff32fbf4c56e72265da84c4977b4a834f/azurePolicyAgent.json" 
-
-try {
-    $NewAgent = New-MetroAIAgent -Name "Azure Policy Agent" -InputObject $AgentDefinition
-    Write-Host "Azure Policy Agent has been created successfully with the ID: $($NewAgent.id)"
-} catch {
-    Write-Host "Failed to create agent. Error: $($_.Exception.Message)"
-    Write-Host "Agent definition: $($AgentDefinition | ConvertTo-Json -Depth 3)"
-    throw
-}
-
-# Writing required outputs to the console for further use in GitHub Actions using Federated Credentials
-Write-Host "Repository secrets:"
-Write-Host "AZURE_CLIENT_ID: $($AzurePolicyAgentDeployment.Outputs.azureClientId.Value)"
-Write-Host "TENANT_ID: $($AzurePolicyAgentDeployment.Outputs.azureTenantId.Value)"
-Write-Host "SUBSCRIPTION_ID: $($AzurePolicyAgentDeployment.Outputs.azureSubscriptionId.value)"
-
-Write-Host "Repository variables:"
-Write-Host "PROJECT_ENDPOINT: $($AzurePolicyAgentDeployment.Outputs.projectEndpoint.value)"
-Write-Host "Assistant_ID: $($NewAgent.id)"
+# The subject must match the token GitHub presents: the infra deploy workflow
+# (Deploy Specialized Policy Agents) runs in the "$GH_ENVIRONMENT" environment.
+az ad app federated-credential create \
+  --id "$APP_ID" \
+  --parameters '{
+    "name": "github-'$GH_ENVIRONMENT'-environment",
+    "issuer": "https://token.actions.githubusercontent.com",
+    "subject": "repo:'$REPO_OWNER'/'$REPO_NAME':environment:'$GH_ENVIRONMENT'",
+    "audiences": ["api://AzureADTokenExchange"]
+  }'
 ```
 
-Save the outputs from the deployment - you'll need these values for GitHub configuration.
+Verify the credential and its subject:
 
-### 4. Configure Federated Identity Credentials
+```bash
+az ad app federated-credential list --id "$APP_ID" -o table
+```
 
-Update the user-assigned managed identity with federated credential details from your repository for pull_request entity:
+The subject must read `repo:<org>/<repo>:environment:dev`. All workflows run in
+the `dev` GitHub environment, which is also the value of `githubEnvironment` in
+`infra/bicep/agentsSetup.bicepparam`. If you use a different environment name,
+update **both** the credential subject and the `githubEnvironment` parameter.
 
-![Federated credentials setup](media/fed_1.png)
-![Federated credentials configuration](media/fed_2.png)
+### Step 2: Configure Secrets and the `dev` Environment
 
-> **Important**: Replace `YOUR_GITHUB_USERNAME/YOUR_REPO_NAME` with your actual GitHub repository details.
+In your GitHub repository, navigate to **Settings → Secrets and variables →
+Actions → Secrets → New repository secret**. Add these three secrets from Common
+Setup Step 2:
 
-### 5. Configure GitHub Repository Secrets and Variables
+| Secret Name | Source | Example Value |
+|-------------|--------|---------------|
+| `AZURE_CLIENT_ID` | `AZURE_CLIENT_ID` echoed in Common Setup | `12345678-1234-1234-1234-123456789abc` |
+| `AZURE_TENANT_ID` | `AZURE_TENANT_ID` echoed in Common Setup | `87654321-4321-4321-4321-cba987654321` |
+| `AZURE_SUBSCRIPTION_ID` | `AZURE_SUBSCRIPTION_ID` echoed in Common Setup | `abcdef12-3456-7890-abcd-ef1234567890` |
 
-Navigate to your GitHub repository → Settings → Secrets and variables → Actions
+There is no client secret to store — authentication uses the federated credential
+from Step 1. Also create a GitHub **environment** named `dev` (**Settings →
+Environments → New environment**) so the workflows' `environment: dev` reference
+resolves.
 
-Add the following **Repository Secrets** (from deployment outputs):
+### Step 3: Deploy the Infrastructure
 
-| Secret Name | Description |
-|-------------|-------------|
-| `AZURE_CLIENT_ID` | User-Assigned Managed Identity Client ID |
-| `AZURE_TENANT_ID` | Azure AD Tenant ID |
-| `AZURE_SUBSCRIPTION_ID` | Target Azure Subscription ID |
+1. Navigate to your repository's **Actions** tab
+2. Select **"Deploy Specialized Policy Agents"** workflow
+3. Click **"Run workflow"** dropdown
+4. Select deployment location: enter the Azure region to deploy to (any region where your chosen model is available)
+5. Click **"Run workflow"** button
+6. Wait for deployment to complete (approximately 10-15 minutes)
+7. **Copy the output values** from the workflow summary
 
-Add the following **Repository Variables** (from deployment outputs):
+### Step 4: Configure Runtime Variables
 
-| Variable Name | Description |
-|---------------|-------------|
-| `PROJECT_ENDPOINT` | Azure AI Foundry Project Endpoint |
-| `ASSISTANT_ID` | Azure AI Agent/Assistant ID |
+Navigate to **Settings → Secrets and variables → Actions → Variables → New
+repository variable**. Add these five variables from the deployment outputs:
 
-### 6. Test Your Setup
+| Variable Name | Description | Find In |
+|---------------|-------------|---------|
+| `AGENT_ENDPOINT` | Azure AI Foundry endpoint URL | Deployment output or workflow summary |
+| `DENY_AGENT_ID` | Deny policy agent ID | Agent deployment script output |
+| `AUDIT_AGENT_ID` | Audit policy agent ID | Agent deployment script output |
+| `DINE_AGENT_ID` | DINE policy agent ID | Agent deployment script output |
+| `MODIFY_AGENT_ID` | Modify policy agent ID | Agent deployment script output |
 
-Create a pull request in the `policyDefinitions` folder to validate that the workflow runs properly:
+**Example values:**
+```plaintext
+AGENT_ENDPOINT=https://ai-project-abc123.australiaeast.api.azureml.ms
+DENY_AGENT_ID=asst_DenyPolicyAgent123
+AUDIT_AGENT_ID=asst_AuditPolicyAgent456
+DINE_AGENT_ID=asst_DINEPolicyAgent789
+MODIFY_AGENT_ID=asst_ModifyPolicyAgent012
+```
+
+### Step 5: Switch Runtime Authentication to the Managed Identity
+
+The bootstrap service principal was only needed to deploy the infrastructure. The
+deployment created a user-assigned managed identity (UMI) pre-granted the
+least-privilege roles the test workflows require (Contributor, Resource Policy
+Contributor, Policy Insights Data Writer, Azure AI Developer and Role Based Access
+Control Administrator), along with its GitHub federated credential
+(`repo:<org>/<repo>:environment:dev`). Update the repository **secrets** to the
+UMI's values so runtime workflows stop using the broadly-privileged bootstrap
+identity:
+
+| Secret Name | New Value | Find In |
+|-------------|-----------|---------|
+| `AZURE_CLIENT_ID` | Managed identity client ID | Deployment output `azureClientId` |
+| `AZURE_TENANT_ID` | Tenant ID | Deployment output `azureTenantId` |
+| `AZURE_SUBSCRIPTION_ID` | Subscription ID | Deployment output `azureSubscriptionId` |
+
+You can now remove the bootstrap service principal's subscription role
+assignments if it is not used for anything else.
+
+### Step 6: Run Your First Test
+
+Commit a policy definition and open a pull request against `main` — see
+[Creating Your First Policy Test](#creating-your-first-policy-test).
+
+---
+
+## Azure DevOps Setup
+
+Complete **Common Setup** first. All commands reuse the `APP_ID` value from Common
+Setup Step 2.
+
+### Step 1: Create the Service Connection and Federated Credential
+
+Azure DevOps authenticates through an Azure Resource Manager **service connection**
+that uses workload identity federation. The pipelines in `pipelines/` expect it to
+be named `policy-agents` (override with the `azureServiceConnection` pipeline
+variable).
+
+1. In Azure DevOps go to **Project Settings → Service connections → New service
+   connection → Azure Resource Manager → Workload Identity federation (manual)**.
+2. Enter the target **Subscription**, then the **Service Principal Id** (`$APP_ID`)
+   and **Tenant Id** from Common Setup. Name the connection `policy-agents`.
+3. Azure DevOps displays an **Issuer** (e.g.
+   `https://vstoken.dev.azure.com/<org-guid>`) and a **Subject identifier**
+   (`sc://<org>/<project>/policy-agents`). Copy both, then create the matching
+   federated credential on the app registration:
+
+```bash
+# Paste the Issuer and Subject identifier shown by Azure DevOps
+ADO_ISSUER="https://vstoken.dev.azure.com/<org-guid>"
+ADO_SUBJECT="sc://<org>/<project>/policy-agents"
+
+az ad app federated-credential create \
+  --id "$APP_ID" \
+  --parameters '{
+    "name": "azure-devops-policy-agents",
+    "issuer": "'$ADO_ISSUER'",
+    "subject": "'$ADO_SUBJECT'",
+    "audiences": ["api://AzureADTokenExchange"]
+  }'
+```
+
+4. Back in Azure DevOps, click **Verify and save** on the service connection to
+   confirm the token exchange succeeds.
+
+### Step 2: Create the Variable Group
+
+The service connection supplies the client and tenant identity, so no
+client/tenant secrets are needed. Create a **variable group** named
+`policy-agents-dev` (**Pipelines → Library → + Variable group**) and add:
+
+| Variable | Value |
+|----------|-------|
+| `AZURE_SUBSCRIPTION_ID` | Subscription ID from Common Setup |
+
+Link this variable group to each pipeline you import from the `pipelines/` folder.
+The agent endpoint and agent IDs are added after deployment (Step 4).
+
+### Step 3: Deploy the Infrastructure
+
+1. Create a pipeline from `pipelines/deploy-specialized-agents.yml`
+   (**Pipelines → New pipeline → Existing Azure Pipelines YAML file**)
+2. Ensure it is linked to the `policy-agents-dev` variable group and the
+   `policy-agents` service connection from Steps 1 and 2
+3. Click **Run**, choosing the `deployment_location` parameter
+4. Wait for deployment to complete, then **copy the agent IDs and endpoint**
+   printed in the *Validate Deployment* job
+
+### Step 4: Add Runtime Variables to the Variable Group
+
+Add these values from the deployment outputs to the `policy-agents-dev` variable
+group (plus the optional `INSTRUCTIONS_AGENT_ID`):
+
+| Variable | Description |
+|----------|-------------|
+| `AGENT_ENDPOINT` | Azure AI Foundry endpoint URL |
+| `DENY_AGENT_ID` | Deny policy agent ID |
+| `AUDIT_AGENT_ID` | Audit policy agent ID |
+| `DINE_AGENT_ID` | DINE policy agent ID |
+| `MODIFY_AGENT_ID` | Modify policy agent ID |
+
+### Step 5: Switch Runtime Authentication to the Managed Identity
+
+The bootstrap service principal was only needed to deploy the infrastructure. The
+deployment created a user-assigned managed identity (UMI) pre-granted the
+least-privilege roles the test pipelines require (Contributor, Resource Policy
+Contributor, Policy Insights Data Writer, Azure AI Developer and Role Based Access
+Control Administrator). The deployment does **not** create an Azure DevOps
+federated credential for the UMI, so add one and back a second service connection
+with it:
+
+1. Create a new service connection (**Workload Identity federation (manual)**,
+   *Managed Identity* credential) named e.g. `policy-agents-umi`, using the UMI's
+   client ID (`azureClientId`) and tenant ID. Copy its Issuer and Subject.
+2. Add the matching federated credential to the UMI (get its name/resource group
+   from the deployment):
+
+   ```bash
+   az identity federated-credential create \
+     --name "azure-devops-policy-agents-umi" \
+     --identity-name "<umi-name>" \
+     --resource-group "<deployment-resource-group>" \
+     --issuer "https://vstoken.dev.azure.com/<org-guid>" \
+     --subject "sc://<org>/<project>/policy-agents-umi" \
+     --audiences "api://AzureADTokenExchange"
+   ```
+
+3. Set the `azureServiceConnection` pipeline variable to `policy-agents-umi` for
+   the `policy-agent` and `update-agent-instructions` pipelines.
+
+Once the runtime pipelines use the UMI, you can remove the bootstrap service
+principal's subscription role assignments (and its service connection) if it is
+not used for anything else.
+
+### Step 6: Run Your First Test
+
+Commit a policy definition and open a pull request against `main` — see
+[Creating Your First Policy Test](#creating-your-first-policy-test).
 
 ## Creating Your First Policy Test
 
@@ -151,15 +392,15 @@ Create a pull request in the `policyDefinitions` folder to validate that the wor
 }
 ```
 
-3. **Create a pull request**: Commit your policy file and create a PR
-4. **Watch the workflow**: Monitor the GitHub Actions tab for workflow execution
-5. **Review results**: Check the PR comments for AI-generated test results
+3. **Create a pull request**: Commit your policy file and open a PR against `main`
+4. **Watch the pipeline**: Monitor the **GitHub Actions** tab, or the **Pipelines** view in Azure DevOps
+5. **Review results**: Check the PR comments (GitHub) or the pipeline run's PR comment/artifacts (Azure DevOps) for AI-generated test results
 
 ## What to Expect
 
 When you create a pull request with policy changes:
 
-1. **Workflow Triggers**: The GitHub Action automatically starts
+1. **Pipeline triggers**: The GitHub Actions workflow or Azure DevOps pipeline automatically starts
 2. **Policy Deployment**: Your policies are deployed to the Azure subscription
 3. **AI Analysis**: The Azure AI agent analyzes your policy and generates tests
 4. **Results Posted**: Detailed test results appear as PR comments
@@ -188,13 +429,15 @@ The Policy 'Test - Allowed locations for resources' successfully validated.
 ```
 Error: AADSTS700016: Application with identifier 'xxx' was not found
 ```
-**Solution**: Verify your managed identity Client ID is correctly configured in GitHub secrets.
+**Solution**: Verify the client ID is correct in your GitHub secrets or Azure DevOps service connection, and that a federated credential exists whose subject matches how your CI system signs in (GitHub `repo:<org>/<repo>:environment:dev`, Azure DevOps `sc://<org>/<project>/<service-connection>`).
 
 #### Permission Errors
 ```
 Error: Insufficient privileges to complete the operation
 ```
-**Solution**: Ensure your managed identity has Contributor permissions on the target subscription.
+**Solution**:
+- For the **bootstrap service principal** (Step 2), ensure it holds both **Contributor** and **User Access Administrator** at subscription scope — the deployment creates role assignments, which Contributor alone cannot do.
+- For the **runtime managed identity** (used by the test workflows), ensure the deployment granted it Contributor, Resource Policy Contributor, Policy Insights Data Writer, Azure AI Developer and Role Based Access Control Administrator. The last role lets the DINE/modify tests assign roles to policy managed identities.
 
 #### AI Agent Not Responding
 ```
@@ -221,19 +464,18 @@ Check the deployment logs for specific Bicep template errors. Common issues:
 - Resource naming conflicts in Azure
 - Insufficient permissions to create policy definitions
 
-#### GitHub Actions Workflow Not Triggering
+#### Pipeline Not Triggering
 **Solution**:
 - Ensure you're modifying files in `policyDefinitions/*.json`
-- Check that the workflow file exists at `.github/workflows/PolicyAgent.yml`
-- Verify you have the correct repository permissions
-- Make sure the workflow is enabled in your repository settings
+- **GitHub Actions:** check the workflow exists at `.github/workflows/PolicyAgent.yml` and is enabled in your repository settings
+- **Azure DevOps:** check the pipeline was created from `pipelines/policy-agent.yml` and that PR triggers/branch policies are configured for `main`
+- Verify you have the correct repository/project permissions
 
 ### Debug Steps
 
-1. **Check GitHub Actions Logs**: 
-   - Go to your repository → Actions tab
-   - Click on the failed workflow run
-   - Review detailed logs for each job step
+1. **Check pipeline logs**:
+   - **GitHub Actions:** repository → Actions tab → the failed run → review each job's logs
+   - **Azure DevOps:** Pipelines → the failed run → review each stage/job's logs
 
 2. **Verify Azure Permissions**: 
    ```bash
@@ -264,18 +506,18 @@ Check the deployment logs for specific Bicep template errors. Common issues:
 
 ### File Locations
 - Policy definitions: `policyDefinitions/*.json`
-- Workflow: `.github/workflows/PolicyAgent.yml`
-- Deployment scripts: `.github/scripts/`
-- Utilities: `utilities/policyAgent/`
+- GitHub Actions workflows: `.github/workflows/` (e.g. `PolicyAgent.yml`)
+- Azure DevOps pipelines: `pipelines/` (e.g. `policy-agent.yml`)
+- Scripts: `scripts/`
 - Infrastructure: `infra/bicep/`
 
 ### Required Secrets & Variables
-- **Secrets**: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`
-- **Variables**: `PROJECT_ENDPOINT`, `ASSISTANT_ID`
+- **GitHub Actions** — Secrets: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`; Variables: `AGENT_ENDPOINT`, `DENY_AGENT_ID`, `AUDIT_AGENT_ID`, `DINE_AGENT_ID`, `MODIFY_AGENT_ID`, `INSTRUCTIONS_AGENT_ID`
+- **Azure DevOps** — Service connection `policy-agents` (workload identity federation) plus variable group `policy-agents-dev` containing `AZURE_SUBSCRIPTION_ID`, `AGENT_ENDPOINT`, `DENY_AGENT_ID`, `AUDIT_AGENT_ID`, `DINE_AGENT_ID`, `MODIFY_AGENT_ID`, `INSTRUCTIONS_AGENT_ID`
 
-### Workflow Triggers
+### Pipeline Triggers
 - Pull requests with changes to `policyDefinitions/*.json`
-- Push to main branch
+- Push to `main` with changes to `policyDefinitions/*.json`
 
 For complete details on how the system works, see the main [README](../README.md).
 

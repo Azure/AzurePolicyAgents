@@ -1,0 +1,247 @@
+name: Maintain Agent Instructions
+
+on:
+  workflow_call:
+    inputs:
+      triggering-run-id:
+        description: 'The run ID of the PolicyAgent workflow that produced the test artifacts'
+        required: true
+        type: string
+      triggering-pr-number:
+        description: 'The PR number that triggered the PolicyAgent workflow (0 if not a PR)'
+        required: true
+        type: string
+      triggering-pr-head-ref:
+        description: 'The head branch of the triggering PR (used to derive a stable maintenance branch name)'
+        required: true
+        type: string
+      default-branch:
+        description: 'The default branch of the repository'
+        required: true
+        type: string
+    secrets:
+      AZURE_CLIENT_ID:
+        required: true
+      AZURE_TENANT_ID:
+        required: true
+      AZURE_SUBSCRIPTION_ID:
+        required: true
+
+permissions:
+  id-token: write
+  contents: write
+  pull-requests: write
+  actions: read
+
+jobs:
+  maintain:
+    environment:
+      name: 'dev'
+    runs-on: ubuntu-latest
+    env:
+      AGENT_ENDPOINT: ${{ vars.AGENT_ENDPOINT }}
+      INSTRUCTIONS_AGENT_ID: ${{ vars.INSTRUCTIONS_AGENT_ID }}
+      AZUREPS_HOST_ENVIRONMENT: "GitHubActions"
+    steps:
+      # Check out main — instruction files live on the default branch.
+      # Improvements are proposed via a new PR, not committed to the triggering PR branch.
+      - name: Checkout repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.default-branch }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Azure Login
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          enable-AzPSSession: true
+
+      - name: Download test result artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: test-results-*
+          # Download artifacts from the triggering PolicyAgent run, not this workflow run
+          run-id: ${{ inputs.triggering-run-id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: maintenance-results
+
+      - name: Fetch workflow run logs
+        shell: bash
+        run: |
+          echo "Fetching logs for run ${{ inputs.triggering-run-id }}..."
+          gh run view ${{ inputs.triggering-run-id }} --log > run-logs.txt 2>&1 || true
+          echo "Log captured: $(wc -l < run-logs.txt) lines"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Analyse results and apply instruction improvements
+        id: maintain
+        uses: azure/powershell@f5b8adcfff1904872c7b98d4012d4914d74b1a82 # v3
+        with:
+          azPSVersion: latest
+          inlineScript: |
+            $WarningPreference = 'SilentlyContinue'
+            & ./scripts/instructions-agent.ps1 `
+              -Endpoint $env:AGENT_ENDPOINT `
+              -AssistantId $env:INSTRUCTIONS_AGENT_ID `
+              -ArtifactsPath "./maintenance-results" `
+              -AgentInstructionsPath "./agentInstructions" `
+              -WorkflowLogPath "./run-logs.txt" `
+              -RunId "${{ inputs.triggering-run-id }}"
+
+      - name: Find existing maintenance PR or create a new one
+        if: steps.maintain.outputs.changes-made == 'true'
+        id: create-pr
+        shell: bash
+        run: |
+          # Derive a stable branch name from the triggering PR so repeated runs reuse
+          # an open maintenance PR without colliding with similarly named source branches.
+          SOURCE_BRANCH="${{ inputs.triggering-pr-head-ref }}"
+          TRIGGERING_PR_NUMBER="${{ inputs.triggering-pr-number }}"
+          # Sanitise: replace slashes and non-alphanumeric chars with hyphens
+          SAFE_SOURCE=$(echo "$SOURCE_BRANCH" | sed 's/[^a-zA-Z0-9]/-/g' | sed 's/-\+/-/g' | sed 's/^-//;s/-$//')
+          STABLE_BRANCH="chore/agent-instructions-pr-${TRIGGERING_PR_NUMBER}-${SAFE_SOURCE}"
+          LEGACY_BRANCH="chore/agent-instructions-${SAFE_SOURCE}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Stash the instruction file patches applied by the maintain step so they
+          # survive the upcoming branch switch. git reset --hard would otherwise discard them.
+          STASHED=false
+          if ! git diff --quiet agentInstructions/; then
+            git stash push -m "instruction-patches" -- agentInstructions/
+            STASHED=true
+            echo "Stashed instruction file patches"
+          fi
+
+          # Only reuse a branch when it backs an open maintenance PR. Check the legacy
+          # name as well so existing maintenance PRs remain updatable after this change.
+          EXISTING_PR=$(gh pr list \
+            --head "$STABLE_BRANCH" \
+            --base "${{ inputs.default-branch }}" \
+            --state open \
+            --json number,url,headRefName \
+            --jq '.[0]' 2>/dev/null || echo "")
+
+          if [ -z "$EXISTING_PR" ]; then
+            EXISTING_PR=$(gh pr list \
+              --head "$LEGACY_BRANCH" \
+              --base "${{ inputs.default-branch }}" \
+              --state open \
+              --json number,url,headRefName \
+              --jq '.[0]' 2>/dev/null || echo "")
+          fi
+
+          EXISTING_PR_URL=$(echo "$EXISTING_PR" | jq -r '.url // empty' 2>/dev/null || echo "")
+          EXISTING_PR_NUMBER=$(echo "$EXISTING_PR" | jq -r '.number // empty' 2>/dev/null || echo "")
+          EXISTING_PR_BRANCH=$(echo "$EXISTING_PR" | jq -r '.headRefName // empty' 2>/dev/null || echo "")
+
+          if [ -n "$EXISTING_PR_URL" ]; then
+            # Branch and PR already exist — check it out, apply the new changes on top
+            echo "Existing maintenance PR found: $EXISTING_PR_URL"
+            BRANCH="$EXISTING_PR_BRANCH"
+            git fetch origin "$BRANCH"
+            git checkout "$BRANCH"
+            git reset --hard "origin/$BRANCH"
+          else
+            # Do not reuse a remote branch from a closed or merged PR. The run ID makes
+            # the replacement branch unique and prevents a non-fast-forward push.
+            BRANCH="$STABLE_BRANCH"
+            if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+              BRANCH="${STABLE_BRANCH}-${{ inputs.triggering-run-id }}"
+            fi
+            echo "No existing maintenance PR — creating branch: $BRANCH"
+            git checkout -b "$BRANCH"
+          fi
+
+          # Re-apply the stashed instruction patches on top of the (possibly switched) branch
+          if [ "$STASHED" = "true" ]; then
+            git stash pop || {
+              echo "Stash pop had conflicts — accepting stashed (new) version of instruction files"
+              git checkout stash -- agentInstructions/
+              git stash drop
+            }
+            echo "Instruction patches re-applied"
+          fi
+
+          git add agentInstructions/*.md
+
+          if git diff --staged --quiet; then
+            echo "No staged changes — nothing to push"
+            if [ -n "$EXISTING_PR_URL" ]; then
+              # Still surface the existing PR URL even if this run added nothing new
+              echo "pr-url=$EXISTING_PR_URL" >> $GITHUB_OUTPUT
+              echo "pr-created=true" >> $GITHUB_OUTPUT
+            else
+              echo "pr-created=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            git commit -m "chore: auto-improve agent instructions [run #${{ inputs.triggering-run-id }}]"
+            git push origin "$BRANCH"
+
+            if [ -n "$EXISTING_PR_URL" ]; then
+              # Update the existing PR body with the latest maintenance summary
+              gh pr edit "$EXISTING_PR_NUMBER" --body-file maintenance-summary.md
+              echo "Existing PR updated: $EXISTING_PR_URL"
+              PR_URL="$EXISTING_PR_URL"
+            else
+              PR_URL=$(gh pr create \
+                --base "${{ inputs.default-branch }}" \
+                --head "$BRANCH" \
+                --title "chore: auto-improve agent instructions ($SOURCE_BRANCH)" \
+                --body-file maintenance-summary.md \
+                --label "agent-maintenance" 2>/dev/null || \
+                gh pr create \
+                --base "${{ inputs.default-branch }}" \
+                --head "$BRANCH" \
+                --title "chore: auto-improve agent instructions ($SOURCE_BRANCH)" \
+                --body-file maintenance-summary.md)
+              echo "New PR created: $PR_URL"
+            fi
+
+            echo "pr-url=$PR_URL" >> $GITHUB_OUTPUT
+            echo "pr-created=true" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Post or update maintenance comment on triggering PR
+        if: steps.create-pr.outputs.pr-created == 'true' && inputs.triggering-pr-number != '0'
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ inputs.triggering-pr-number }}
+        run: |
+          # Hidden marker used to locate and update a single sticky maintenance comment across runs
+          MARKER="<!-- agent-instructions-maintenance -->"
+          PR_URL="${{ steps.create-pr.outputs.pr-url }}"
+          {
+            printf '%s\n' "$MARKER"
+            printf '## 🤖 Agent Instructions Maintenance\n\nThe maintenance agent identified improvements to the policy agent instructions based on test results from this run.\n\n**Improvement PR opened:** %s\n\n' "$PR_URL"
+            tail -n +2 maintenance-summary.md
+          } > maintenance-comment.md
+          # Locate the existing sticky comment by its marker and update it in place; create otherwise.
+          existing_id=$(gh api --paginate \
+            "repos/$REPO/issues/$PR_NUMBER/comments" \
+            --jq ".[] | select(.body | contains(\"$MARKER\")) | .id" | head -n1)
+          if [ -n "$existing_id" ]; then
+            echo "Updating existing maintenance comment: $existing_id"
+            gh api -X PATCH "repos/$REPO/issues/comments/$existing_id" -F body=@maintenance-comment.md
+          else
+            echo "No existing maintenance comment found, creating a new one"
+            gh pr comment "$PR_NUMBER" --body-file maintenance-comment.md
+          fi
+
+      - name: Upload maintenance summary
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: maintenance-summary
+          path: maintenance-summary.md
+          if-no-files-found: ignore

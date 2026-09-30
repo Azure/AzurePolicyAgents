@@ -1,0 +1,226 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/26.0.9 Chrome/128.0.6613.186 Electron/32.2.5 Safari/537.36" version="26.0.9">
+  <diagram name="Azure Policy Agent Architecture" id="policy-agent-arch">
+    <mxGraphModel dx="2504" dy="1487" grid="0" gridSize="10" guides="0" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1760" pageHeight="760" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="z1" value="Policy-as-Code Repo" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f4f5f7;strokeColor=#5e6c84;strokeWidth=2;verticalAlign=top;fontSize=14;fontStyle=1;fontColor=#42526e;align=center;pointerEvents=0;" parent="1" vertex="1">
+          <mxGeometry y="-30" width="260" height="850" as="geometry" />
+        </mxCell>
+        <mxCell id="z2" value="DevOps CI/CD" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eef2f8;strokeColor=#4a6fa5;strokeWidth=2;verticalAlign=top;fontSize=14;fontStyle=1;fontColor=#33507a;align=center;pointerEvents=0;" parent="1" vertex="1">
+          <mxGeometry x="340" y="-30" width="360" height="850" as="geometry" />
+        </mxCell>
+        <mxCell id="z3" value="Microsoft Foundry" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#efedf6;strokeColor=#6b5b95;strokeWidth=2;verticalAlign=top;fontSize=14;fontStyle=1;fontColor=#4a3f6b;align=center;pointerEvents=0;" parent="1" vertex="1">
+          <mxGeometry x="760" y="360" width="690" height="460" as="geometry" />
+        </mxCell>
+        <mxCell id="zaz" value="Azure Subscription" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eaf3f1;strokeColor=#4f8a80;strokeWidth=2;verticalAlign=top;fontSize=14;fontStyle=1;fontColor=#33645b;align=center;pointerEvents=0;" parent="1" vertex="1">
+          <mxGeometry x="760" y="-30" width="690" height="360" as="geometry" />
+        </mxCell>
+        <mxCell id="z1-pr" value="🔀 Pull Request" style="swimlane;startSize=28;fillColor=#ffffff;strokeColor=#5e6c84;strokeWidth=1.5;fontSize=11;fontStyle=1;fontColor=#42526e;rounded=1;html=1;" parent="1" vertex="1">
+          <mxGeometry x="20" y="30" width="220" height="230" as="geometry">
+            <mxRectangle x="20" y="90" width="120" height="30" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="z1-comment" value="&lt;b&gt;💬 Test Results&lt;/b&gt;&lt;br&gt;PASS or FAIL summary posted back to the PR comment and recorded into Test Evidence file" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f4f5f7;strokeColor=#5e6c84;strokeWidth=1;fontSize=10;fontColor=#42526e;align=center;verticalAlign=middle;" parent="z1-pr" vertex="1">
+          <mxGeometry x="10" y="130" width="200" height="74" as="geometry" />
+        </mxCell>
+        <mxCell id="z1-policy" value="&lt;b&gt;📁 Policy Definitions (.JSON)&lt;/b&gt;&lt;br&gt;Custom policy definitions containing business rules and enforcement defaults" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#5e6c84;strokeWidth=1.5;fontSize=11;fontColor=#42526e;align=left;spacingLeft=8;spacingRight=8;verticalAlign=middle;" parent="1" vertex="1">
+          <mxGeometry x="20" y="548" width="220" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="z1-inst" value="&lt;b&gt;📁 Agent Instructions (.MD)&lt;/b&gt;&lt;br&gt;Perscriptive guidance that shapes how each agent behaves and the test contract" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#5e6c84;strokeWidth=1.5;fontSize=11;fontColor=#42526e;align=left;spacingLeft=8;spacingRight=8;verticalAlign=middle;" parent="1" vertex="1">
+          <mxGeometry x="20" y="628" width="220" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="z1-evidence" value="&lt;b&gt;📁 Test Evidence (.MD)&lt;/b&gt;&lt;br&gt;Records prior test outcomes so unchanged policies are not retested unneccessarily" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#5e6c84;strokeWidth=1.5;fontSize=11;fontColor=#42526e;align=left;spacingLeft=8;spacingRight=8;verticalAlign=middle;" parent="1" vertex="1">
+          <mxGeometry x="20" y="708" width="220" height="68" as="geometry" />
+        </mxCell>
+        <mxCell id="z2-validate" value="&lt;b&gt;(2) Validate &amp;amp; Plan&lt;/b&gt;&lt;br&gt;Validates policy definitions, skips policies with existing test evidence, routes policies to correct foundry agents" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#4a6fa5;strokeWidth=1.5;fontSize=11;fontColor=#33507a;align=left;spacingLeft=10;spacingRight=10;verticalAlign=middle;" parent="1" vertex="1">
+          <mxGeometry x="360" y="70" width="320" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="z2-test" value="&lt;b&gt;(3) Test Policies&lt;/b&gt;&lt;br&gt;Orchestrates provisioning of new ephemeral agent per policy, exchange of policy data to agent, executes azcli script on target subscription, collects test results&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#4a6fa5;strokeWidth=1.5;fontSize=11;fontColor=#33507a;align=left;spacingLeft=10;spacingRight=10;verticalAlign=middle;" parent="1" vertex="1">
+          <mxGeometry x="360" y="200" width="320" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="z2-report" value="&lt;b&gt;(7) Report &amp;amp; Record&lt;/b&gt;&lt;br&gt;Combines all test results, records results and evidence in the PR" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#4a6fa5;strokeWidth=1.5;fontSize=11;fontColor=#33507a;align=left;spacingLeft=10;spacingRight=10;verticalAlign=middle;" parent="1" vertex="1">
+          <mxGeometry x="360" y="408" width="320" height="88" as="geometry" />
+        </mxCell>
+        <mxCell id="z2-improve" value="&lt;b&gt;(9) Improve Instructions&lt;/b&gt;&lt;br&gt;Orchestrates passing test results to instructions maintenance agent and creating a new PR if improvements are found" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#4a6fa5;strokeWidth=1.5;fontSize=11;fontColor=#33507a;align=left;spacingLeft=10;spacingRight=10;verticalAlign=middle;" parent="1" vertex="1">
+          <mxGeometry x="360" y="562" width="320" height="84" as="geometry" />
+        </mxCell>
+        <mxCell id="z2-cleanup" value="&lt;b&gt;(13) Final Clean Up&lt;/b&gt;&lt;br&gt;Removes any leftover test resources in Azure or ephemeral agents in Foundry" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#4a6fa5;strokeWidth=1.5;fontSize=11;fontColor=#33507a;align=left;spacingLeft=10;spacingRight=10;verticalAlign=middle;" parent="1" vertex="1">
+          <mxGeometry x="360" y="704" width="320" height="72" as="geometry" />
+        </mxCell>
+        <mxCell id="z3-agents" value="&lt;b&gt;Specialised Agents (prompt-based)&lt;/b&gt;&lt;br&gt;Deny · Audit · DINE · Modify&lt;br&gt;1x baseline agent per policy effect" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6b5b95;strokeWidth=1.5;fontSize=11;fontColor=#4a3f6b;align=center;verticalAlign=middle;" parent="1" vertex="1">
+          <mxGeometry x="830" y="430" width="220" height="74" as="geometry" />
+        </mxCell>
+        <mxCell id="z3-instructions" value="&lt;b&gt;Instructions Maintenance Agent (prompt-based)&lt;/b&gt;&lt;br&gt;Reviews test artifacts/results, then proposes refinements to agent instructions to eliminate azcli script or logic errors" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6b5b95;strokeWidth=1.5;fontSize=11;fontColor=#4a3f6b;align=center;verticalAlign=middle;" parent="1" vertex="1">
+          <mxGeometry x="800" y="690" width="270" height="86" as="geometry" />
+        </mxCell>
+        <mxCell id="zaz-policy" value="&lt;div&gt;&lt;b style=&quot;background-color: transparent; color: light-dark(rgb(51, 100, 91), rgb(128, 170, 162));&quot;&gt;Azure Policy Definitions &amp;amp; Assignments&lt;/b&gt;&lt;br&gt;&lt;/div&gt;Deployed to enforce policy&#39;s rules and effects then destroyed" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#4f8a80;strokeWidth=1.5;fontSize=11;fontColor=#33645b;align=center;verticalAlign=middle;" parent="1" vertex="1">
+          <mxGeometry x="950.01" y="60" width="240" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="zaz-resources" value="&lt;b&gt;Azure Resources&lt;/b&gt;&lt;br&gt;Deployed to validate policy&#39;s rules and effects then destroyed" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#4f8a80;strokeWidth=1.5;fontSize=11;fontColor=#33645b;align=center;verticalAlign=middle;" parent="1" vertex="1">
+          <mxGeometry x="950.01" y="160" width="240" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="zaz-note" value="Alll test resources are provisioned and destroyed automatically for every run - reduces overall cloud running costs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#8fb8b0;strokeWidth=1;dashed=1;fontSize=10;fontStyle=2;fontColor=#33645b;align=center;verticalAlign=middle;" parent="1" vertex="1">
+          <mxGeometry x="1210.01" y="90" width="160" height="108" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" value="(1) Triggers pipeline" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=1.5;strokeColor=#5e6c84;fontColor=#5e6c84;fontSize=10;endArrow=block;endFill=1;entryX=0;entryY=0.5;entryPerimeter=0;" parent="1" target="z2-validate" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="290" y="110" />
+              <mxPoint x="290" y="110" />
+            </Array>
+            <mxPoint x="240" y="110" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="es1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=1.5;strokeColor=#5e6c84;endArrow=block;endFill=1;exitX=0.5;exitY=1;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;" parent="1" source="z2-validate" target="z2-test" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="es2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=1.5;strokeColor=#5e6c84;endArrow=block;endFill=1;exitX=0.5;exitY=1;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;" parent="1" source="z2-test" target="z2-report" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="es3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=1.5;strokeColor=#5e6c84;endArrow=block;endFill=1;exitX=0.5;exitY=1;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;" parent="1" source="z2-report" target="z2-improve" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="es4" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=1.5;strokeColor=#5e6c84;endArrow=block;endFill=1;exitX=0.5;exitY=1;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;" parent="1" source="z2-improve" target="z2-cleanup" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" value="(8) Records Test results/evidence&amp;nbsp;&lt;div&gt;into existing PR&lt;/div&gt;" style="rounded=1;html=1;strokeWidth=1.5;strokeColor=#5e6c84;fontColor=#5e6c84;fontSize=10;endArrow=block;endFill=1;edgeStyle=orthogonalEdgeStyle;" parent="1" source="z2-report" target="z1-comment" edge="1">
+          <mxGeometry x="0.7382" y="40" relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="320" y="450" />
+              <mxPoint x="320" y="200" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e3" value="(4) Provisions eph agent &amp;amp; receives azcli script from agent conversation" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=1.5;strokeColor=#5e6c84;fontColor=#5e6c84;fontSize=10;startArrow=block;startFill=1;endArrow=block;endFill=1;" parent="1" source="z2-test" target="xvctKn7uPelOfDZUwbZC-32" edge="1">
+          <mxGeometry x="-0.312" y="10" relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="730" y="270" />
+              <mxPoint x="730" y="580" />
+            </Array>
+            <mxPoint x="690" y="588" as="sourcePoint" />
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e11" value="(11) Suggests agent improvements based on test results" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=1.5;strokeColor=#5e6c84;fontColor=#5e6c84;fontSize=10;startArrow=block;startFill=1;endArrow=block;endFill=1;" parent="1" source="z2-improve" target="z3-instructions" edge="1">
+          <mxGeometry x="0.0769" y="20" relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="740" y="600" />
+              <mxPoint x="740" y="740" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e4" value="" style="rounded=1;html=1;strokeWidth=1.5;strokeColor=#5e6c84;fontColor=#5e6c84;fontSize=10;startArrow=block;startFill=1;endArrow=block;endFill=1;" parent="1" source="xvctKn7uPelOfDZUwbZC-32" target="xvctKn7uPelOfDZUwbZC-30" edge="1">
+          <mxGeometry x="-0.1112" y="10" relative="1" as="geometry">
+            <mxPoint x="1178.77" y="580" as="targetPoint" />
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="xvctKn7uPelOfDZUwbZC-25" value="&lt;span style=&quot;color: rgb(94, 108, 132); font-size: 10px;&quot;&gt;(5) Conversations&lt;/span&gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="e4">
+          <mxGeometry x="0.0158" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="xvctKn7uPelOfDZUwbZC-5" value="" style="dashed=0;outlineConnect=0;html=1;align=center;labelPosition=center;verticalLabelPosition=bottom;verticalAlign=top;shape=mxgraph.weblogos.github" vertex="1" parent="1">
+          <mxGeometry x="645.5" y="-20" width="28.5" height="27.5" as="geometry" />
+        </mxCell>
+        <mxCell id="xvctKn7uPelOfDZUwbZC-6" value="" style="image;aspect=fixed;html=1;points=[];align=center;fontSize=12;image=img/lib/azure2/ai_machine_learning/Cognitive_Services.svg;" vertex="1" parent="1">
+          <mxGeometry x="1370" y="370" width="37.59" height="26.53" as="geometry" />
+        </mxCell>
+        <mxCell id="xvctKn7uPelOfDZUwbZC-9" value="" style="rounded=1;html=1;strokeWidth=1.5;strokeColor=#5e6c84;fontColor=#5e6c84;fontSize=10;endArrow=block;endFill=1;edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1" source="z2-test" target="zaz-resources">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="760" y="230" />
+              <mxPoint x="760" y="230" />
+            </Array>
+            <mxPoint x="720" y="240" as="sourcePoint" />
+            <mxPoint x="950" y="249.01857142857148" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="xvctKn7uPelOfDZUwbZC-10" value="" style="image;aspect=fixed;html=1;points=[];align=center;fontSize=12;image=img/lib/azure2/management_governance/Policy.svg;" vertex="1" parent="1">
+          <mxGeometry x="1160.02" y="70" width="18.75" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="e17" value="(6) Executes azcli script to deploy &amp;amp; cleanup test resources" style="rounded=1;html=1;strokeWidth=1.5;strokeColor=#5e6c84;fontColor=#5e6c84;fontSize=10;endArrow=block;endFill=1;edgeStyle=orthogonalEdgeStyle;" parent="1" source="z2-test" target="zaz-policy" edge="1">
+          <mxGeometry x="0.1113" y="30" relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="840" y="230" />
+              <mxPoint x="840" y="140" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="xvctKn7uPelOfDZUwbZC-16" value="" style="image;aspect=fixed;html=1;points=[];align=center;fontSize=12;image=img/lib/azure2/other/Azure_A.svg;" vertex="1" parent="1">
+          <mxGeometry x="1380.67" y="-20" width="31.22" height="29.43" as="geometry" />
+        </mxCell>
+        <mxCell id="xvctKn7uPelOfDZUwbZC-17" value="" style="image;aspect=fixed;html=1;points=[];align=center;fontSize=12;image=img/lib/azure2/devops/Azure_DevOps.svg;" vertex="1" parent="1">
+          <mxGeometry x="610" y="-20" width="27.5" height="27.5" as="geometry" />
+        </mxCell>
+        <mxCell id="xvctKn7uPelOfDZUwbZC-19" value="" style="image;sketch=0;aspect=fixed;html=1;points=[];align=center;fontSize=12;image=img/lib/mscae/ResourceGroup.svg;" vertex="1" parent="1">
+          <mxGeometry x="1156.89" y="170" width="25" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="xvctKn7uPelOfDZUwbZC-21" value="Engineer/Agent opens PR with new or changed policy definitions (.JSON)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#a99cc4;strokeWidth=1;dashed=1;fontSize=10;fontStyle=2;fontColor=#4a3f6b;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="45" y="80" width="170" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="xvctKn7uPelOfDZUwbZC-22" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=1.5;strokeColor=#8993a4;fontColor=#8993a4;fontSize=10;dashed=1;dashPattern=6 4;endArrow=block;endFill=1;" edge="1" parent="1" source="z3-agents" target="xvctKn7uPelOfDZUwbZC-32">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="690" y="260" as="sourcePoint" />
+            <mxPoint x="960" y="260" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="xvctKn7uPelOfDZUwbZC-23" value="Test policies job is auto-scaled based on # of policies in the PR - allows parallel test execution" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#a99cc4;strokeWidth=1;dashed=1;fontSize=10;fontStyle=2;fontColor=#4a3f6b;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="386.5" y="282" width="255" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="xvctKn7uPelOfDZUwbZC-24" value="(10) Conversations" style="rounded=1;html=1;strokeWidth=1.5;strokeColor=#5e6c84;fontColor=#5e6c84;fontSize=10;startArrow=block;startFill=1;endArrow=block;endFill=1;" edge="1" parent="1" source="z3-instructions" target="xvctKn7uPelOfDZUwbZC-31">
+          <mxGeometry x="-0.0892" y="4" relative="1" as="geometry">
+            <mxPoint x="1080" y="590" as="sourcePoint" />
+            <mxPoint x="1178.77" y="610" as="targetPoint" />
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="xvctKn7uPelOfDZUwbZC-26" value="" style="image;sketch=0;aspect=fixed;html=1;points=[];align=center;fontSize=12;image=img/lib/mscae/Azure_Repos.svg;" vertex="1" parent="1">
+          <mxGeometry x="219.3" y="-20" width="20.7" height="23" as="geometry" />
+        </mxCell>
+        <mxCell id="xvctKn7uPelOfDZUwbZC-27" value="🔀 Pull Request" style="swimlane;startSize=28;fillColor=#ffffff;strokeColor=#5e6c84;strokeWidth=1.5;fontSize=11;fontStyle=1;fontColor=#42526e;rounded=1;html=1;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="20" y="300" width="220" height="140" as="geometry">
+            <mxRectangle x="20" y="90" width="120" height="30" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="xvctKn7uPelOfDZUwbZC-28" value="&lt;b&gt;💬 Agent Instruction Improvements&lt;/b&gt;&lt;br&gt;Proposed changes to agent instruction files based on latest test results" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f4f5f7;strokeColor=#5e6c84;strokeWidth=1;fontSize=10;fontColor=#42526e;align=center;verticalAlign=middle;" vertex="1" parent="xvctKn7uPelOfDZUwbZC-27">
+          <mxGeometry x="10" y="47" width="200" height="74" as="geometry" />
+        </mxCell>
+        <mxCell id="e14" value="(12) Suggests improvements&amp;nbsp;&lt;div&gt;to&amp;nbsp;&lt;span style=&quot;background-color: light-dark(#ffffff, var(--ge-dark-color, #121212)); color: light-dark(rgb(137, 147, 164), rgb(104, 112, 127));&quot;&gt;instructions in a new PR&lt;/span&gt;&lt;/div&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=1.5;strokeColor=#8993a4;fontColor=#8993a4;fontSize=10;dashed=1;dashPattern=6 4;endArrow=block;endFill=1;exitX=0;exitY=0.5;exitPerimeter=0;" parent="1" source="z2-improve" target="xvctKn7uPelOfDZUwbZC-28" edge="1">
+          <mxGeometry x="-0.1771" relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="300" y="604" />
+              <mxPoint x="300" y="384" />
+            </Array>
+            <mxPoint x="240" y="594" as="targetPoint" />
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="xvctKn7uPelOfDZUwbZC-29" value="Deployed Model" style="swimlane;startSize=28;fillColor=#ffffff;strokeColor=#5e6c84;strokeWidth=1.5;fontSize=11;fontStyle=1;fontColor=#42526e;rounded=1;html=1;" vertex="1" parent="1">
+          <mxGeometry x="1180" y="524" width="231.89" height="266" as="geometry">
+            <mxRectangle x="20" y="90" width="120" height="30" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="xvctKn7uPelOfDZUwbZC-30" value="&lt;span style=&quot;color: rgb(74, 63, 107); font-size: 11px;&quot;&gt;Analyses policy data + system prompt and generates a full azcli script needed to deploy test resources and validate the policy&#39;s effects&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f4f5f7;strokeColor=#5e6c84;strokeWidth=1;fontSize=10;fontColor=#42526e;align=center;verticalAlign=middle;" vertex="1" parent="xvctKn7uPelOfDZUwbZC-29">
+          <mxGeometry x="21.89" y="47" width="200" height="74" as="geometry" />
+        </mxCell>
+        <mxCell id="z4-icon" value="" style="image;aspect=fixed;html=1;align=center;verticalLabelPosition=bottom;verticalAlign=top;labelPosition=center;fontSize=10;fontColor=#4a3f6b;image=img/lib/azure2/ai_machine_learning/Azure_OpenAI.svg;" parent="xvctKn7uPelOfDZUwbZC-29" vertex="1">
+          <mxGeometry x="200" y="6" width="19.44" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="xvctKn7uPelOfDZUwbZC-31" value="&lt;span style=&quot;color: rgb(74, 63, 107); font-size: 11px;&quot;&gt;Analyses test results + system prompt and suggests improvements to agent instructions&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f4f5f7;strokeColor=#5e6c84;strokeWidth=1;fontSize=10;fontColor=#42526e;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1201.8899999999999" y="696" width="200" height="74" as="geometry" />
+        </mxCell>
+        <mxCell id="xvctKn7uPelOfDZUwbZC-32" value="&lt;b&gt;Ephemeral Agents (prompt-based)&lt;/b&gt;&lt;br&gt;Deny · Audit · DINE · Modify&lt;div&gt;1x agent per policy being tested&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6b5b95;strokeWidth=1.5;fontSize=11;fontColor=#4a3f6b;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="830" y="538" width="220" height="132" as="geometry" />
+        </mxCell>
+        <mxCell id="z3-ephemeral" value="New ephemeral agents are automatically created, based on baseline agent, for each policy test then destroyed once complete - allows scalable parallel test execution" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#a99cc4;strokeWidth=1;dashed=1;fontSize=10;fontStyle=2;fontColor=#4a3f6b;align=center;verticalAlign=middle;" parent="1" vertex="1">
+          <mxGeometry x="840" y="595" width="200" height="65" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

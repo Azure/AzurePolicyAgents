@@ -8,13 +8,11 @@
 
 # VSCode
 .vs
-.vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
 *.code-workspace
-.vscode/settings.json
 
 # User-specific files
 *.rsuser
@@ -390,7 +388,6 @@ MigrationBackup/
 FodyWeavers.xsd
 
 # VS Code files for those working on multiple tools
-.vscode
 !.vscode/settings.json
 !.vscode/tasks.json
 !.vscode/launch.json
@@ -503,5 +500,5 @@ static
 local.settings.json
 prereqs.tfvars
 
-#pester test results
-**/tests/**/TEST-*.xml
+# Generated policy agent instruction files (built at runtime by the instruction build step)
+agentInstructions/*PolicyAgentInstructions.json

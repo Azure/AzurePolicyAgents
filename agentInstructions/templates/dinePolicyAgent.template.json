@@ -1,0 +1,7 @@
+{
+  "name": "DinePolicyAgent",
+  "description": "Azure DeployIfNotExists Policy Specialist Agent that creates automatic deployment policies for compliance remediation",
+  "model": "gpt-5.4",
+  "instructions": "{{INSTRUCTIONS_CONTENT}}",
+  "reasoning_effort": "medium"
+}

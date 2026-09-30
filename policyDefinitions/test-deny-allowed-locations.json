@@ -1,0 +1,36 @@
+{
+  "name": "Test-Deny-Allowed-Locations-Resources",
+  "type": "Microsoft.Authorization/policyDefinitions",
+  "apiVersion": "2021-06-01",
+  "scope": null,
+  "properties": {
+    "displayName": "Test - Deny - Allowed locations for resources",
+    "policyType": "Custom",
+    "mode": "Indexed",
+    "description": "Test policy that restricts resource deployment to specific locations",
+    "metadata": {
+      "category": "General"
+    },
+    "parameters": {
+      "listOfAllowedLocations": {
+        "type": "Array",
+        "defaultValue": ["eastus", "westus2"],
+        "metadata": {
+          "displayName": "Allowed locations",
+          "description": "List of allowed Azure regions for resource deployment"
+        }
+      }
+    },
+    "policyRule": {
+      "if": {
+        "not": {
+          "field": "location",
+          "in": "[parameters('listOfAllowedLocations')]"
+        }
+      },
+      "then": {
+        "effect": "deny"
+      }
+    }
+  }
+}

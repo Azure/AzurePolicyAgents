@@ -1,0 +1,107 @@
+# Azure DevOps Pipeline — Update Agent Instructions
+# Equivalent of .github/workflows/update-agent-instructions.yml
+#
+# Triggered automatically when files under agentInstructions/ are pushed to
+# the default branch, or manually with an explicit list of agent types.
+#
+# Prerequisites
+# ─────────────
+#   Same service connection and variable group as policy-agent.yml.
+
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - agentInstructions/**
+      - pipelines/update-agent-instructions.yml
+
+pr: none
+
+parameters:
+  - name: agent_types
+    displayName: 'Agent types to update (comma-separated)'
+    type: string
+    default: 'deny,audit,deployIfNotExists,modify,instructionsAgent'
+
+variables:
+  - group: policy-agents-dev
+  - name: azureServiceConnection
+    value: 'policy-agents'
+
+stages:
+  - stage: UpdateInstructions
+    displayName: 'Update Agent Instructions'
+    jobs:
+      - job: UpdateAgentInstructions
+        displayName: 'Push Updated Instructions to Azure AI Foundry Agents'
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - checkout: self
+
+          # Security: only ever deploy instruction files from the default branch so a
+          # manual queue against a feature branch cannot push tampered instructions to
+          # the live agents.
+          - bash: |
+              set -e
+              git fetch origin main
+              git checkout -B main origin/main
+            displayName: 'Checkout instruction files from default branch (prevent prompt injection)'
+
+          - task: AzurePowerShell@5
+            displayName: 'Update Agent Instructions'
+            inputs:
+              azureSubscription: $(azureServiceConnection)
+              ScriptType: InlineScript
+              Inline: |
+                $WarningPreference = 'SilentlyContinue'
+
+                $endpoint = $env:AGENT_ENDPOINT
+                if ([string]::IsNullOrEmpty($endpoint)) {
+                  Write-Error "AGENT_ENDPOINT variable is not set. Please configure it in the variable group."
+                  exit 1
+                }
+
+                # Determine agent types based on trigger
+                $isCITrigger = $env:BUILD_REASON -eq 'IndividualCI' -or $env:BUILD_REASON -eq 'BatchedCI'
+                if ($isCITrigger) {
+                  # Auto-trigger: update all agents
+                  $agentTypes = "deny,audit,deployIfNotExists,modify,instructionsAgent"
+                  Write-Host "🔄 Auto-triggered by push — updating all agent types"
+                } else {
+                  # Manual dispatch: use the parameter value
+                  $agentTypes = "${{ parameters.agent_types }}"
+                  Write-Host "👤 Manual trigger — updating agent types: $agentTypes"
+                }
+
+                Write-Host "Project Endpoint: $endpoint"
+                Write-Host "Agent Types: $agentTypes"
+
+                # Retrieve the model deployment name from the most recent Bicep deployment
+                $deployment = Get-AzSubscriptionDeployment -ErrorAction SilentlyContinue |
+                  Where-Object { $_.DeploymentName -like "*specialized-agents*" } |
+                  Select-Object -First 1
+                $modelName = if ($deployment) { $deployment.Outputs.modelDeploymentName.Value } else { "gpt-5.4" }
+                Write-Host "Model deployment name: $modelName"
+
+                $scriptArgs = @{
+                  ProjectEndpoint     = $endpoint
+                  ModelDeploymentName = $modelName
+                  AgentTypes          = $agentTypes
+                  UpdateExisting      = $true
+                }
+
+                Write-Host "Executing update script..."
+                $scriptArgs | ConvertTo-Json
+
+                Set-Location ./infra/bicep
+                $output = & ../../scripts/deploySpecializedAgents.ps1 @scriptArgs
+
+                Write-Host "`n=== Update Results ==="
+                $output
+                Write-Host "`n✅ Agent instructions updated successfully!"
+              azurePowerShellVersion: LatestVersion
+            env:
+              BUILD_REASON: $(Build.Reason)

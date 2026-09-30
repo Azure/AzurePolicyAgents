@@ -1,40 +1,45 @@
-name: Azure Policy Agent
+name: Run Specialized Policy Agent Tests
 
 on:
-  push:
-    branches:
-      - main
   pull_request:
     branches:
       - main
     paths:
       - "policyDefinitions/*.json"
+  workflow_dispatch:
 
 permissions:
   id-token: write
   contents: write
   pull-requests: write
+  actions: read
+
+concurrency:
+  group: policy-agent-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  PolicyDefinition:
-    if: github.event_name == 'pull_request' && github.event.action != 'closed' # Only run on pull requests
+  PolicyValidation:
+    if: (github.event_name == 'pull_request' && github.event.action != 'closed') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     outputs:
-      policyContentBase64: ${{ steps.deploy-policy.outputs.policyContentBase64 }}
-      processedFilesCount: ${{ steps.deploy-policy.outputs.processedFilesCount }}
+      processedFilesCount: ${{ steps.validate-policies.outputs.processedFilesCount }}
+      policyMatrix: ${{ steps.validate-policies.outputs.policyMatrix }}
+      denyPoliciesBase64: ${{ steps.validate-policies.outputs.denyPoliciesBase64 }}
+      auditPoliciesBase64: ${{ steps.validate-policies.outputs.auditPoliciesBase64 }}
+      dinePoliciesBase64: ${{ steps.validate-policies.outputs.dinePoliciesBase64 }}
+      modifyPoliciesBase64: ${{ steps.validate-policies.outputs.modifyPoliciesBase64 }}
+      denyPoliciesCount: ${{ steps.validate-policies.outputs.denyPoliciesCount }}
+      auditPoliciesCount: ${{ steps.validate-policies.outputs.auditPoliciesCount }}
+      dinePoliciesCount: ${{ steps.validate-policies.outputs.dinePoliciesCount }}
+      modifyPoliciesCount: ${{ steps.validate-policies.outputs.modifyPoliciesCount }}
+      skippedByEvidenceCount: ${{ steps.validate-policies.outputs.skippedByEvidenceCount }}
+      skippedByEvidenceBase64: ${{ steps.validate-policies.outputs.skippedByEvidenceBase64 }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@0717577d45739eb3c851188b29f50ed6c0b2194e # v2.8.0
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
-
-      - name: Azure Login
-        uses: azure/login@cb79c773a3cfa27f31f25eb3f677781210c9ce3d # v1.6.1
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          enable-AzPSSession: true
 
       - name: Get changed files
         id: changed-files
@@ -44,76 +49,655 @@ jobs:
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          chmod +x ./.github/scripts/get-changed-files.sh
-          ./.github/scripts/get-changed-files.sh
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            # For manual runs, process all policy files
+            echo "Manual workflow run - processing all policy files"
+            json_files=$(find policyDefinitions -name "*.json" -type f | tr '\n' ',' | sed 's/,$//')
+            json_files_count=$(find policyDefinitions -name "*.json" -type f | wc -l)
+            echo "json_files=$json_files" >> $GITHUB_OUTPUT
+            echo "json_files_count=$json_files_count" >> $GITHUB_OUTPUT
+            echo "Found $json_files_count policy file(s): $json_files"
+          else
+            # For PR runs, use the existing script to get changed files
+            chmod +x ./scripts/get-changed-files.sh
+            ./scripts/get-changed-files.sh
+          fi
 
-      - name: Deploy Azure Policy Definition and Assignment
-        id: deploy-policy
-        uses: azure/powershell@53dd145408794f7e80f97cfcca04155c85234709 # v2.0.0
-        with:
-          azPSVersion: latest
-          inlineScript: |
-            ./.github/scripts/deploy-policies.ps1 `
-              -JsonFiles "${{ steps.changed-files.outputs.json_files }}" `
-              -JsonFilesCount "${{ steps.changed-files.outputs.json_files_count }}"
+      - name: Load default branch evidence
+        id: default-branch-evidence
+        shell: bash
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          evidence_file="$RUNNER_TEMP/default-branch-evidence-log.md"
+          if git show "origin/$DEFAULT_BRANCH:docs/test-evidence/evidence-log.md" > "$evidence_file" 2>/dev/null; then
+            echo "Loaded test evidence from origin/$DEFAULT_BRANCH"
+          else
+            : > "$evidence_file"
+            echo "No test evidence exists on origin/$DEFAULT_BRANCH"
+          fi
+          echo "path=$evidence_file" >> "$GITHUB_OUTPUT"
+
+      - name: Validate Policies and Group by Effect
+        id: validate-policies
+        shell: pwsh
+        env:
+          FORCE_RETEST: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          ./scripts/validate-policies.ps1 `
+            -JsonFiles "${{ steps.changed-files.outputs.json_files }}" `
+            -JsonFilesCount "${{ steps.changed-files.outputs.json_files_count }}" `
+            -EvidenceFiles @(
+              "docs/test-evidence/evidence-log.md",
+              "${{ steps.default-branch-evidence.outputs.path }}"
+            ) `
+            -ForceRetest ($env:FORCE_RETEST -eq "true")
 
   PolicyAgent:
+    name: PolicyAgent (${{ matrix.policy.slug }})
+    environment:
+      name: 'dev'
     runs-on: ubuntu-latest
-    if: needs.PolicyDefinition.outputs.policyContentBase64 != ''
-    needs: PolicyDefinition
+    timeout-minutes: 30
+    if: needs.PolicyValidation.outputs.processedFilesCount != '0' && needs.PolicyValidation.outputs.policyMatrix != '[]'
+    needs: PolicyValidation
+    strategy:
+      fail-fast: false
+      # Capped to protect the shared Foundry model deployment throughput.
+      max-parallel: 10
+      matrix:
+        policy: ${{ fromJSON(needs.PolicyValidation.outputs.policyMatrix) }}
     env:
-      PROJECT_ENDPOINT: ${{ vars.PROJECT_ENDPOINT }}
-      ASSISTANT_ID: ${{ vars.ASSISTANT_ID }}
+      # Single Foundry Endpoint for all specialized agents
+      AGENT_ENDPOINT: ${{ vars.AGENT_ENDPOINT }}
+      # Specialized base agents cloned per policy under test
+      DENY_AGENT_ID: ${{ vars.DENY_AGENT_ID }}
+      AUDIT_AGENT_ID: ${{ vars.AUDIT_AGENT_ID }}
+      DINE_AGENT_ID: ${{ vars.DINE_AGENT_ID }}
+      MODIFY_AGENT_ID: ${{ vars.MODIFY_AGENT_ID }}
       AZUREPS_HOST_ENVIRONMENT: "GitHubActions"
+      # Unique per run, per re-run attempt and per policy so parallel jobs never clash
+      EPHEMERAL_AGENT_NAME: pta-gh-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.policy.index }}-${{ matrix.policy.agentType }}
+      JOB_ID: gh-${{ github.run_id }}-${{ matrix.policy.agentType }}-${{ matrix.policy.index }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@0717577d45739eb3c851188b29f50ed6c0b2194e # v2.8.0
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
-# 
+
+      - name: Resolve base agent
+        id: base-agent
+        # policyName, file and effect originate from the policy JSON under test, so they
+        # are passed as environment variables rather than interpolated into shell source.
+        env:
+          POLICY_AGENT_TYPE: ${{ matrix.policy.agentType }}
+          POLICY_NAME: ${{ matrix.policy.policyName }}
+          POLICY_FILE: ${{ matrix.policy.file }}
+          POLICY_EFFECT: ${{ matrix.policy.effect }}
+        run: |
+          case "$POLICY_AGENT_TYPE" in
+            "deny")
+              base_agent_id="$DENY_AGENT_ID"
+              ;;
+            "audit")
+              base_agent_id="$AUDIT_AGENT_ID"
+              ;;
+            "dine")
+              base_agent_id="$DINE_AGENT_ID"
+              ;;
+            "modify")
+              base_agent_id="$MODIFY_AGENT_ID"
+              ;;
+            *)
+              echo "❌ Unknown agent type: $POLICY_AGENT_TYPE"
+              exit 1
+              ;;
+          esac
+
+          if [ -z "$AGENT_ENDPOINT" ]; then
+            echo "❌ AGENT_ENDPOINT is not configured"
+            exit 1
+          fi
+
+          if [ -z "$base_agent_id" ]; then
+            echo "❌ Base agent ID not configured for $POLICY_AGENT_TYPE"
+            exit 1
+          fi
+
+          echo "base-agent-id=$base_agent_id" >> $GITHUB_OUTPUT
+          echo "📄 Policy: $POLICY_NAME ($POLICY_FILE)"
+          echo "🎯 Effect: $POLICY_EFFECT -> $POLICY_AGENT_TYPE agent"
+          echo "🤖 Base agent: $base_agent_id"
+          echo "🏷️ Ephemeral agent: $EPHEMERAL_AGENT_NAME"
+
       - name: Azure Login
-        uses: azure/login@cb79c773a3cfa27f31f25eb3f677781210c9ce3d # v1.6.1
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           enable-AzPSSession: true
 
-      - name: Get Policy Content from Previous Job
-        id: get-policy-content
+      - name: Prepare policy payload
+        env:
+          POLICY_FILE: ${{ matrix.policy.file }}
         run: |
-          echo "Retrieved PolicyContentBase64:"
-          echo "${{ needs.PolicyDefinition.outputs.policyContentBase64 }}"
-          echo "Number of processed files: ${{ needs.PolicyDefinition.outputs.processedFilesCount }}"
+          if [ ! -f "$POLICY_FILE" ]; then
+            echo "❌ Policy file not found: $POLICY_FILE"
+            exit 1
+          fi
 
-          # Decode the Base64 content which contains JSON array of all policy files
-          echo "${{ needs.PolicyDefinition.outputs.policyContentBase64 }}" | base64 --decode > allPolicyContents.json
-
-          echo "Contents of allPolicyContents.json:"
+          # test-policies-cli.ps1 expects a JSON array; this job tests exactly one policy
+          jq -s '.' "$POLICY_FILE" > allPolicyContents.json
+          echo "📦 Policy payload:"
           cat allPolicyContents.json
 
-          # Extract individual policy files for processing
-          jq -r '.[] | @base64' allPolicyContents.json > policyFiles.txt || echo "[]" > policyFiles.txt
-        shell: bash
+      - name: "Resolve Job URL"
+        id: job-url
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          POLICY_SLUG: ${{ matrix.policy.slug }}
+          GH_REPO_FULL: ${{ github.repository }}
+          GH_RUN_ID: ${{ github.run_id }}
+        run: |
+          # Query the Jobs API to find this matrix job by name and extract its numeric ID.
+          # The job name in the API matches the workflow display name.
+          RESOLVED_JOB_ID=$(gh api \
+            "/repos/$GH_REPO_FULL/actions/runs/$GH_RUN_ID/jobs" \
+            --jq '.jobs[] | select(.name == "PolicyAgent (" + env.POLICY_SLUG + ")") | .id' \
+            2>/dev/null || echo "")
+          if [ -n "$RESOLVED_JOB_ID" ]; then
+            echo "job-url=https://github.com/$GH_REPO_FULL/actions/runs/$GH_RUN_ID/job/$RESOLVED_JOB_ID" >> $GITHUB_OUTPUT
+            echo "Resolved job URL: https://github.com/$GH_REPO_FULL/actions/runs/$GH_RUN_ID/job/$RESOLVED_JOB_ID"
+          else
+            echo "job-url=https://github.com/$GH_REPO_FULL/actions/runs/$GH_RUN_ID" >> $GITHUB_OUTPUT
+            echo "Could not resolve job ID, falling back to run URL"
+          fi
 
-      - name: Policy Testing (AI Foundry Agent Service)
-        uses: azure/powershell@53dd145408794f7e80f97cfcca04155c85234709 # v2.0.0
+      - name: "Provision Ephemeral Agent"
+        id: provision-agent
+        uses: azure/powershell@f5b8adcfff1904872c7b98d4012d4914d74b1a82 # v3
         with:
           azPSVersion: latest
           inlineScript: |
-            ./.github/scripts/test-policies.ps1 `
-              -Endpoint $env:PROJECT_ENDPOINT `
-              -AssistantId $env:ASSISTANT_ID
+            $WarningPreference = 'SilentlyContinue'
+            ./scripts/manage-test-agent.ps1 `
+              -Action Create `
+              -Endpoint $env:AGENT_ENDPOINT `
+              -BaseAgentId "${{ steps.base-agent.outputs.base-agent-id }}" `
+              -AgentName $env:EPHEMERAL_AGENT_NAME `
+              -OutputName "agent-id"
 
-      - name: "Post Result as Comment"
-        if: ${{ needs.PolicyDefinition.result == 'success' }}
+      - name: "Test Policy: ${{ matrix.policy.policyName }}"
+        id: test-policies
+        uses: azure/powershell@f5b8adcfff1904872c7b98d4012d4914d74b1a82 # v3
+        env:
+          POLICY_AGENT_TYPE: ${{ matrix.policy.agentType }}
+        with:
+          azPSVersion: latest
+          inlineScript: |
+            $WarningPreference = 'SilentlyContinue'
+
+            $agentId = "${{ steps.provision-agent.outputs.agent-id }}"
+            if ([string]::IsNullOrWhiteSpace($agentId)) {
+              Write-Error "❌ Ephemeral agent ID was not returned by the provisioning step"
+              exit 1
+            }
+
+            Write-Host "🔗 Endpoint: $env:AGENT_ENDPOINT"
+            Write-Host "🤖 Ephemeral agent: $agentId"
+            Write-Host "🏷️ Job identifier: $env:JOB_ID"
+
+            ./scripts/test-policies-cli.ps1 `
+              -Endpoint $env:AGENT_ENDPOINT `
+              -AssistantId $agentId `
+              -AgentType $env:POLICY_AGENT_TYPE `
+              -JobId $env:JOB_ID `
+              -WorkflowRunUrl "${{ steps.job-url.outputs.job-url }}"
+
+      - name: "Remove Ephemeral Agent"
+        id: remove-agent
+        if: always() && steps.base-agent.outcome == 'success'
+        continue-on-error: true
+        uses: azure/powershell@f5b8adcfff1904872c7b98d4012d4914d74b1a82 # v3
+        with:
+          azPSVersion: latest
+          inlineScript: |
+            $WarningPreference = 'SilentlyContinue'
+            ./scripts/manage-test-agent.ps1 `
+              -Action Delete `
+              -Endpoint $env:AGENT_ENDPOINT `
+              -AgentId "${{ steps.provision-agent.outputs.agent-id }}" `
+              -AgentName $env:EPHEMERAL_AGENT_NAME
+
+      - name: "Upload Test Results"
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: test-results-${{ matrix.policy.slug }}
+          path: |
+            ${{ runner.temp }}/RESULT.md
+            ${{ runner.temp }}/DEBUG.md
+            ${{ runner.temp }}/evidence.md
+          if-no-files-found: warn
+
+  CommentResults:
+    runs-on: ubuntu-latest
+    if: needs.PolicyValidation.result == 'success' && always()
+    needs: [PolicyValidation, PolicyAgent]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          
+      - name: Download all test results
+        if: needs.PolicyValidation.outputs.processedFilesCount != '0'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: test-results-*
+          path: results
+
+      - name: Combine results
         shell: bash
+        env:
+          SKIPPED_COUNT: ${{ needs.PolicyValidation.outputs.skippedByEvidenceCount }}
+          SKIPPED_BASE64: ${{ needs.PolicyValidation.outputs.skippedByEvidenceBase64 }}
         run: |
-          if [ -f /tmp/RESULT.md ]; then
-            gh pr comment ${{ github.event.pull_request.number }} --body-file /tmp/RESULT.md
-            cat /tmp/RESULT.md
-          else
-            echo "There are no results, so no comments are posted. For further information, please look into the validate step."
+          echo "Checking for test results..."
+          ls -la results/ || echo "Results directory not found"
+
+          result_count=0
+          if [ -d results ]; then
+            result_count=$(find results -name 'RESULT.md' -type f | wc -l)
           fi
+
+          skipped_count="${SKIPPED_COUNT:-0}"
+          case "$skipped_count" in ''|*[!0-9]*) skipped_count=0 ;; esac
+          decode_ok=0
+          echo "[]" > skipped.json
+          if [ -n "$SKIPPED_BASE64" ]; then
+            if echo "$SKIPPED_BASE64" | base64 --decode > skipped.json 2>/dev/null && jq -e 'type == "array"' skipped.json >/dev/null 2>&1; then
+              decode_ok=1
+            else
+              echo "Could not decode skipped policy list; keeping the count reported by validation"
+              echo "[]" > skipped.json
+            fi
+          fi
+          # Only let the decoded list override the count when decoding actually worked,
+          # otherwise a corrupt payload would silently hide skipped policies.
+          if [ "$decode_ok" -eq 1 ]; then
+            decoded_count=$(jq 'length' skipped.json 2>/dev/null || echo "")
+            case "$decoded_count" in
+              ''|*[!0-9]*)
+                echo "Could not count decoded skip list; using validation output count $skipped_count"
+                ;;
+              *)
+                if [ "$decoded_count" != "$skipped_count" ]; then
+                  echo "Skip count mismatch (output=$skipped_count decoded=$decoded_count); using decoded"
+                  skipped_count="$decoded_count"
+                fi
+                ;;
+            esac
+          fi
+
+          # Comment when anything happened: policies were tested, or tests were skipped on evidence.
+          if [ "$result_count" -eq 0 ] && [ "$skipped_count" -eq 0 ]; then
+            echo "No test results and no evidence-based skips"
+            echo "results-found=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Hidden marker used to locate and update the single sticky PR comment across runs
+          echo "<!-- policy-agent-test-results -->" > combined-results.md
+          echo "## 🎯 Azure Policy Test Results - Multi-Agent Analysis" >> combined-results.md
+          echo "" >> combined-results.md
+          echo "Tested $result_count policy definition(s) with a dedicated ephemeral agent per policy. Skipped $skipped_count with matching PASS evidence." >> combined-results.md
+          echo "" >> combined-results.md
+          echo "---" >> combined-results.md
+          echo "" >> combined-results.md
+
+          # Process each agent's results (each in its own subdirectory)
+          # Only include RESULT.md — DEBUG.md is for the InstructionsAgent only
+          if [ "$result_count" -gt 0 ]; then
+            for agent_dir in results/test-results-*/; do
+              if [ -d "$agent_dir" ]; then
+                echo "Processing results from: $agent_dir"
+                result="${agent_dir}RESULT.md"
+                if [ -f "$result" ]; then
+                  echo "Adding result file: $result"
+                  cat "$result" >> combined-results.md
+                  echo "" >> combined-results.md
+                  echo "---" >> combined-results.md
+                  echo "" >> combined-results.md
+                fi
+              fi
+            done
+          else
+            echo "### ℹ️ No policies required agent testing" >> combined-results.md
+            echo "" >> combined-results.md
+            echo "Every changed policy definition already has a recorded PASS result for its current content." >> combined-results.md
+            echo "" >> combined-results.md
+            echo "---" >> combined-results.md
+            echo "" >> combined-results.md
+          fi
+
+          # Skipped policies are invisible in the artifacts, so render them from the validation output.
+          if [ "$skipped_count" -gt 0 ]; then
+            echo "### ⏭️ Skipped (existing test evidence)" >> combined-results.md
+            echo "" >> combined-results.md
+            echo "These policies were not retested because the latest evidence for their current content is PASS. Any change to a policy definition alters its content hash and forces a retest." >> combined-results.md
+            echo "" >> combined-results.md
+            echo "| Policy | Effect | Last tested | Evidence |" >> combined-results.md
+            echo "|---|---|---|---|" >> combined-results.md
+            if [ "$decode_ok" -eq 1 ] && jq -e 'length > 0' skipped.json >/dev/null 2>&1; then
+              jq -r '.[] | "| `\(.policyName)` | \(.effect // "-") | \(.testedAt // "-") | " + (if (.runUrl // "") == "" then "n/a" else "[run](\(.runUrl))" end) + " |"' skipped.json >> combined-results.md
+            else
+              echo "| _$skipped_count policy definition(s); details unavailable, see the workflow summary_ | - | - | - |" >> combined-results.md
+            fi
+            echo "" >> combined-results.md
+            echo "To force a retest without changing a policy, run the workflow manually via workflow_dispatch." >> combined-results.md
+            echo "" >> combined-results.md
+            echo "---" >> combined-results.md
+            echo "" >> combined-results.md
+          fi
+
+          echo "Combined results preview:"
+          head -n 50 combined-results.md
+
+          echo "results-found=true" >> $GITHUB_OUTPUT
+        id: combine
+
+      - name: Post or update PR Comment
+        if: github.event_name == 'pull_request' && steps.combine.outputs.results-found == 'true'
+        shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          # Locate the existing sticky comment by its hidden marker and update it in place.
+          # Falls back to creating a new comment when no prior one exists.
+          MARKER="<!-- policy-agent-test-results -->"
+          existing_id=$(gh api --paginate \
+            "repos/$REPO/issues/$PR_NUMBER/comments" \
+            --jq ".[] | select(.body | contains(\"$MARKER\")) | .id" | head -n1)
+          if [ -n "$existing_id" ]; then
+            echo "Updating existing policy test comment: $existing_id"
+            gh api -X PATCH "repos/$REPO/issues/comments/$existing_id" -F body=@combined-results.md
+          else
+            echo "No existing policy test comment found, creating a new one"
+            gh pr comment "$PR_NUMBER" --body-file combined-results.md
+          fi
+
+      - name: Add to Workflow Summary
+        if: steps.combine.outputs.results-found == 'true'
+        shell: bash
+        run: |
+          cat combined-results.md >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "*View detailed results in the artifacts section above*" >> $GITHUB_STEP_SUMMARY
+
+  RecordEvidence:
+    # Option A: append test evidence and commit it to the triggering PR branch so the
+    # evidence lands with the same PR that changed the policy. Only runs for same-repo PRs
+    # (GITHUB_TOKEN cannot push to a fork head branch). Commits touch docs/test-evidence only,
+    # so the path filter on this workflow prevents a re-trigger loop.
+    # always() lets this run when some PolicyAgent matrix legs fail, so evidence for the
+    # policies that passed is still recorded and they are not needlessly retested next run.
+    runs-on: ubuntu-latest
+    if: >-
+      always() &&
+      github.event_name == 'pull_request' &&
+      needs.PolicyValidation.result == 'success' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    needs: [PolicyValidation, PolicyAgent]
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download all test results
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: test-results-*
+          path: evidence-artifacts
+
+      - name: Update evidence log
+        shell: pwsh
+        run: |
+          ./scripts/update-evidence-log.ps1 `
+            -ArtifactsPath "evidence-artifacts" `
+            -EvidenceDir "docs/test-evidence" `
+            -PolicyDefinitionsPath "policyDefinitions" `
+            -PrNumber "${{ github.event.pull_request.number }}" `
+            -CommitSha "${{ github.event.pull_request.head.sha }}"
+
+      - name: Commit evidence log to PR branch
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/test-evidence
+          if git diff --cached --quiet; then
+            echo "No evidence changes to commit"
+          else
+            git commit -m "docs: update policy test evidence log [skip ci]"
+            git push origin "HEAD:${{ github.head_ref }}"
+          fi
+
+  InstructionsAgent:
+    # Only call when INSTRUCTIONS_AGENT_ID is configured and this is a pull request.
+    # workflow_call runs asynchronously — it does not block FinalCleanup.
+    # always() lets this run when some PolicyAgent matrix legs fail; the maintenance agent
+    # learns from the full result set, including failures, so it must not be gated on every leg passing.
+    if: >-
+      always() &&
+      github.event_name == 'pull_request' &&
+      vars.INSTRUCTIONS_AGENT_ID != '' &&
+      needs.PolicyValidation.result == 'success'
+    needs: [PolicyValidation, PolicyAgent, CommentResults]
+    uses: ./.github/workflows/instructions-agent.yml
+    with:
+      triggering-run-id: ${{ github.run_id }}
+      triggering-pr-number: ${{ github.event.pull_request.number }}
+      triggering-pr-head-ref: ${{ github.head_ref }}
+      default-branch: ${{ github.event.repository.default_branch }}
+    secrets:
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+  FinalCleanup:
+    environment:
+      name: 'dev'
+    runs-on: ubuntu-latest
+    # FinalCleanup does not wait for InstructionsAgent — that runs independently
+    # as a reusable workflow and must not delay Azure resource cleanup.
+    if: always() && needs.PolicyValidation.outputs.policyMatrix != '[]'
+    needs: [PolicyValidation, PolicyAgent, CommentResults]
+    env:
+      AZUREPS_HOST_ENVIRONMENT: "GitHubActions"
+      AGENT_ENDPOINT: ${{ vars.AGENT_ENDPOINT }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+
+      - name: Azure Login
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          enable-AzPSSession: true
+
+      - name: "Sweep Ephemeral Agents"
+        if: vars.AGENT_ENDPOINT != ''
+        continue-on-error: true
+        uses: azure/powershell@f5b8adcfff1904872c7b98d4012d4914d74b1a82 # v3
+        with:
+          azPSVersion: latest
+          inlineScript: |
+            $WarningPreference = 'SilentlyContinue'
+            # Fail-safe for agents left behind by cancelled or timed out test jobs
+            ./scripts/manage-test-agent.ps1 `
+              -Action Sweep `
+              -Endpoint $env:AGENT_ENDPOINT `
+              -NamePrefix "pta-gh-${{ github.run_id }}-"
+
+      - name: "Final Resource Cleanup"
+        uses: azure/powershell@f5b8adcfff1904872c7b98d4012d4914d74b1a82 # v3
+        with:
+          azPSVersion: latest
+          inlineScript: |
+            $WarningPreference = 'SilentlyContinue'
+            $runId = "${{ github.run_id }}"
+            
+            Write-Host "🧹 Performing final cleanup for workflow run: $runId"
+            Write-Host "🎯 Target JobId pattern: gh-$runId-* (covers every policy job)"
+            
+            # The JobId passed to each agent is "gh-{runId}-{agentType}-{index}" (e.g., "gh-12345-deny-02")
+            # This JobId is used to tag ALL resources created during that policy's tests
+            # Pattern to match: Any JobId starting with "gh-{runId}-"
+            $jobIdPattern = "gh-$runId-"
+            
+            # Find resource groups created by THIS workflow run
+            try {
+              Write-Host "`n🔍 Searching for resource groups tagged with JobId pattern: $jobIdPattern*"
+              $allResourceGroups = Get-AzResourceGroup -ErrorAction SilentlyContinue
+              
+              if ($allResourceGroups) {
+                # Filter by JobId tag - match any JobId that starts with our pattern
+                $resourceGroups = $allResourceGroups | Where-Object { 
+                  if ($_ -and $_.Tags -and $_.Tags['JobId']) {
+                    $jobId = $_.Tags['JobId']
+                    $isMatch = $jobId.StartsWith($jobIdPattern)
+                    
+                    if ($isMatch) {
+                      Write-Host "  ✓ Match found: $($_.ResourceGroupName) (JobId: $jobId)"
+                    }
+                    
+                    return $isMatch
+                  }
+                  return $false
+                }
+                
+                if ($resourceGroups -and $resourceGroups.Count -gt 0) {
+                  Write-Host "`n🗑️ Found $($resourceGroups.Count) resource group(s) to clean up:"
+                  
+                  foreach ($rg in $resourceGroups) {
+                    $jobId = $rg.Tags['JobId']
+                    Write-Host "  - $($rg.ResourceGroupName) (JobId: $jobId)"
+                    
+                    try {
+                      # Use AsJob for faster parallel cleanup
+                      $job = Remove-AzResourceGroup -Name $rg.ResourceGroupName -Force -AsJob
+                      Write-Host "    ✅ Cleanup job started"
+                    }
+                    catch {
+                      Write-Warning "    ⚠️ Failed to start cleanup: $($_.Exception.Message)"
+                    }
+                  }
+                  
+                  # Wait for cleanup jobs to start
+                  Start-Sleep -Seconds 10
+                  $jobs = Get-Job -ErrorAction SilentlyContinue
+                  if ($jobs) {
+                    Write-Host "`n📊 Cleanup summary: $($jobs.Count) cleanup job(s) running in background"
+                  }
+                  
+                } else {
+                  Write-Host "`n✅ No resource groups found with matching JobId pattern"
+                }
+              } else {
+                Write-Host "`n✅ No resource groups found in subscription"
+              }
+            }
+            catch {
+              Write-Warning "`n⚠️ Error during resource group cleanup: $($_.Exception.Message)"
+            }
+            
+            # Clean up policy definitions and assignments created by THIS workflow run
+            try {
+              Write-Host "`n🔍 Searching for policies with names matching pattern: *$jobIdPattern*"
+              
+              # Look for policy definitions with names containing our JobId pattern
+              $policies = Get-AzPolicyDefinition -Custom -ErrorAction SilentlyContinue | Where-Object { 
+                if ($_) {
+                  $policyName = $_.Name
+                  # Check if policy name contains our workflow run pattern
+                  $isMatch = $policyName -like "*$jobIdPattern*"
+                  
+                  if ($isMatch) {
+                    Write-Host "  ✓ Policy match: $policyName"
+                  }
+                  
+                  return $isMatch
+                }
+                return $false
+              }
+              
+              if ($policies) {
+                Write-Host "`n🗑️ Removing $($policies.Count) policy definition(s):"
+                foreach ($policy in $policies) {
+                  Write-Host "  - $($policy.Name)"
+                  try {
+                    Remove-AzPolicyDefinition -Id $policy.PolicyDefinitionId -Force -ErrorAction SilentlyContinue
+                    Write-Host "    ✅ Removed"
+                  }
+                  catch {
+                    Write-Warning "    ⚠️ Failed to remove: $($_.Exception.Message)"
+                  }
+                }
+              } else {
+                Write-Host "`n✅ No matching policy definitions found"
+              }
+              
+              # Look for policy assignments with names containing our JobId pattern
+              $assignments = Get-AzPolicyAssignment -ErrorAction SilentlyContinue | Where-Object { 
+                if ($_) {
+                  $assignmentName = $_.Name
+                  # Check if assignment name contains our workflow run pattern
+                  $isMatch = $assignmentName -like "*$jobIdPattern*"
+                  
+                  if ($isMatch) {
+                    Write-Host "  ✓ Assignment match: $assignmentName"
+                  }
+                  
+                  return $isMatch
+                }
+                return $false
+              }
+              
+              if ($assignments) {
+                Write-Host "`n🗑️ Removing $($assignments.Count) policy assignment(s):"
+                foreach ($assignment in $assignments) {
+                  Write-Host "  - $($assignment.Name)"
+                  try {
+                    Remove-AzPolicyAssignment -Id $assignment.PolicyAssignmentId -ErrorAction SilentlyContinue
+                    Write-Host "    ✅ Removed"
+                  }
+                  catch {
+                    Write-Warning "    ⚠️ Failed to remove: $($_.Exception.Message)"
+                  }
+                }
+              } else {
+                Write-Host "`n✅ No matching policy assignments found"
+              }
+              
+            }
+            catch {
+              Write-Warning "`n⚠️ Policy cleanup encountered errors: $($_.Exception.Message)"
+            }
+            
+            Write-Host "`n🏁 Final cleanup completed for workflow run: $runId"
+            Write-Host "📋 Summary:"
+            Write-Host "  - Cleaned up all resources with JobId starting with: $jobIdPattern"
+            Write-Host "  - This includes resources from ALL policy tests in this run (deny, audit, dine, modify)"
+            Write-Host "  - Other concurrent workflow runs remain unaffected"

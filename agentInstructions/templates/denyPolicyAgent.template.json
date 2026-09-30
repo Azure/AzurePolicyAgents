@@ -1,0 +1,7 @@
+{
+  "name": "DenyPolicyAgent",
+  "description": "Azure Deny Policy Specialist Agent that creates preventive policies to block non-compliant deployments",
+  "model": "gpt-5.4",
+  "instructions": "{{INSTRUCTIONS_CONTENT}}",
+  "reasoning_effort": "medium"
+}

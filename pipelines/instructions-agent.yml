@@ -1,0 +1,237 @@
+# Azure DevOps Pipeline — Instructions Maintenance (standalone)
+# Equivalent of .github/workflows/instructions-agent.yml
+#
+# This pipeline can be triggered manually to analyse test results from a
+# previous policy-agent pipeline run and propose improvements to the agent
+# instruction files via a pull request.
+#
+# It is also designed to be referenced from the main policy-agent.yml pipeline
+# as a cross-pipeline trigger if your ADO setup prefers that pattern.
+#
+# Prerequisites
+# ─────────────
+#   Same service connection and variable group as policy-agent.yml.
+#   The build service identity needs 'Contribute' and 'Contribute to pull
+#   requests' permissions on the repository.
+
+trigger: none
+pr: none
+
+parameters:
+  - name: buildId
+    displayName: 'Build ID of the policy-agent run to analyse'
+    type: number
+
+  - name: pullRequestId
+    displayName: 'Pull Request ID that triggered the policy-agent run (0 if not a PR)'
+    type: number
+    default: 0
+
+  - name: pullRequestSourceBranch
+    displayName: 'Source branch of the triggering PR (e.g. feature/my-policy)'
+    type: string
+    default: ''
+
+  - name: targetBranch
+    displayName: 'Target / default branch of the repository'
+    type: string
+    default: 'main'
+
+variables:
+  - group: policy-agents-dev
+  - name: azureServiceConnection
+    value: 'policy-agents'
+
+stages:
+  - stage: InstructionsAgent
+    displayName: 'Instructions Maintenance'
+    jobs:
+      - job: RunInstructionsAgent
+        displayName: 'Analyse Results and Update Instructions'
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          # Check out the default branch so instruction-file patches are applied
+          # on top of the latest committed instructions, not the PR source branch.
+          - checkout: self
+            fetchDepth: 0
+
+          # Security: enforce that instruction files come from the trusted default
+          # branch regardless of which branch this pipeline was queued on. The agent
+          # treats agentInstructions/*.md as its own instructions, so reading them
+          # from an untrusted branch would allow prompt injection.
+          - bash: |
+              set -e
+              TARGET_BRANCH="${{ parameters.targetBranch }}"
+              TARGET_BRANCH="${TARGET_BRANCH#refs/heads/}"
+              TARGET_BRANCH="${TARGET_BRANCH:-main}"
+              echo "Resetting working tree to origin/$TARGET_BRANCH so instruction files come from the trusted default branch"
+              git fetch origin "$TARGET_BRANCH"
+              git checkout -B "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
+            displayName: 'Checkout instruction files from default branch (prevent prompt injection)'
+
+          - task: DownloadPipelineArtifact@2
+            displayName: 'Download Test Result Artifacts from Triggering Run'
+            continueOnError: true
+            inputs:
+              buildType: specific
+              buildId: ${{ parameters.buildId }}
+              # Leave artifactName empty to download all test-results-* artifacts
+              targetPath: maintenance-results
+
+          - bash: |
+              # Retrieve build logs for the triggering run via the ADO REST API.
+              # instructions-agent.ps1 degrades gracefully when the log is unavailable.
+              echo "Fetching build logs for run ${{ parameters.buildId }}..."
+              LOGS_URL="${SYSTEM_TEAMFOUNDATIONCOLLECTIONURI}${SYSTEM_TEAMPROJECT}/_apis/build/builds/${{ parameters.buildId }}/logs?api-version=7.1"
+              LOGS_JSON=$(curl -s -H "Authorization: Bearer $SYSTEM_ACCESSTOKEN" "$LOGS_URL" 2>/dev/null || echo '{"value":[]}')
+
+              > run-logs.txt
+              echo "$LOGS_JSON" | python3 - <<'PYEOF'
+              import json, sys, urllib.request, os
+              data = json.load(sys.stdin)
+              token = os.environ.get('SYSTEM_ACCESSTOKEN', '')
+              # Cap at 20 log entries to keep run-logs.txt within a reasonable size
+              # for the instructions-agent prompt window (~40 KB limit in the script).
+              # Individual log entries are concatenated, so 20 entries is typically
+              # sufficient to capture all relevant agent and test output.
+              for entry in data.get('value', [])[:20]:
+                  url = entry.get('url', '')
+                  if url:
+                      req = urllib.request.Request(url, headers={'Authorization': f'Bearer {token}'})
+                      try:
+                          with urllib.request.urlopen(req, timeout=10) as resp:
+                              sys.stdout.write(resp.read().decode('utf-8', errors='replace'))
+                              sys.stdout.write('\n')
+                      except Exception as e:
+                          sys.stdout.write(f'(log fetch error: {e})\n')
+              PYEOF
+              echo "Log captured: $(wc -l < run-logs.txt) lines"
+            displayName: 'Fetch Triggering Run Logs'
+            continueOnError: true
+            env:
+              SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+              SYSTEM_TEAMFOUNDATIONCOLLECTIONURI: $(System.TeamFoundationCollectionUri)
+              SYSTEM_TEAMPROJECT: $(System.TeamProject)
+
+          - task: AzurePowerShell@5
+            name: maintain
+            displayName: 'Analyse Results and Apply Instruction Improvements'
+            inputs:
+              azureSubscription: $(azureServiceConnection)
+              ScriptType: InlineScript
+              Inline: |
+                $WarningPreference = 'SilentlyContinue'
+                & ./scripts/instructions-agent.ps1 `
+                  -Endpoint $env:AGENT_ENDPOINT `
+                  -AssistantId $env:INSTRUCTIONS_AGENT_ID `
+                  -ArtifactsPath "./maintenance-results" `
+                  -AgentInstructionsPath "./agentInstructions" `
+                  -WorkflowLogPath "./run-logs.txt" `
+                  -RunId "${{ parameters.buildId }}"
+              azurePowerShellVersion: LatestVersion
+
+          - bash: |
+              set -e
+              CHANGES_MADE="$(maintain.changesMade)"
+              echo "changes-made: $CHANGES_MADE"
+
+              if [ "$CHANGES_MADE" != "true" ]; then
+                echo "No instruction changes proposed — skipping branch creation"
+                exit 0
+              fi
+
+              # Derive a stable maintenance branch name from the source branch
+              SOURCE_BRANCH="${{ parameters.pullRequestSourceBranch }}"
+              SOURCE_BRANCH="${SOURCE_BRANCH#refs/heads/}"
+              SAFE_SOURCE=$(echo "$SOURCE_BRANCH" | sed 's/[^a-zA-Z0-9]/-/g' | sed 's/-\+/-/g' | sed 's/^-//;s/-$//')
+              BRANCH="chore/agent-instructions-${SAFE_SOURCE:-${{ parameters.buildId }}}"
+              TARGET_BRANCH="${{ parameters.targetBranch }}"
+
+              git config user.name "Azure DevOps Pipeline"
+              git config user.email "ado-pipeline@noreply"
+              git add agentInstructions/*.md
+
+              if git diff --staged --quiet; then
+                echo "No staged changes — nothing to commit"
+                exit 0
+              fi
+
+              EXISTING_PR=$(az repos pr list \
+                --repository "$(Build.Repository.Name)" \
+                --source-branch "$BRANCH" \
+                --target-branch "$TARGET_BRANCH" \
+                --status active \
+                --query "[0].pullRequestId" \
+                --output tsv 2>/dev/null || echo "")
+
+              if [ -n "$EXISTING_PR" ] && [ "$EXISTING_PR" != "None" ]; then
+                echo "Existing maintenance PR #$EXISTING_PR found"
+                git fetch origin "$BRANCH" 2>/dev/null || true
+                git checkout "$BRANCH" 2>/dev/null || git checkout -b "$BRANCH"
+                git reset --hard "origin/$BRANCH" 2>/dev/null || true
+                git add agentInstructions/*.md
+              else
+                git checkout -b "$BRANCH"
+                git add agentInstructions/*.md
+              fi
+
+              if git diff --staged --quiet; then
+                echo "No staged changes after checkout — nothing to commit"
+                exit 0
+              fi
+
+              git commit -m "chore: auto-improve agent instructions [run #${{ parameters.buildId }}]"
+              git push origin "$BRANCH"
+
+              if [ -n "$EXISTING_PR" ] && [ "$EXISTING_PR" != "None" ]; then
+                echo "Maintenance branch updated; existing PR #$EXISTING_PR"
+                PR_ID="$EXISTING_PR"
+              else
+                PR_ID=$(az repos pr create \
+                  --repository "$(Build.Repository.Name)" \
+                  --source-branch "$BRANCH" \
+                  --target-branch "$TARGET_BRANCH" \
+                  --title "chore: auto-improve agent instructions (${SOURCE_BRANCH:-run ${{ parameters.buildId }}})" \
+                  --description "$(cat maintenance-summary.md 2>/dev/null || echo 'Auto-generated instruction improvements')" \
+                  --query "pullRequestId" \
+                  --output tsv 2>/dev/null || echo "")
+                echo "New maintenance PR created: #$PR_ID"
+              fi
+
+              # Comment on the triggering PR if one was supplied
+              PR_NUMBER="${{ parameters.pullRequestId }}"
+              if [ "$PR_NUMBER" != "0" ] && [ -n "$PR_NUMBER" ] && [ -n "$PR_ID" ] && [ "$PR_ID" != "None" ]; then
+                SUMMARY=$(tail -n +2 maintenance-summary.md 2>/dev/null || true)
+                BODY="## 🤖 Agent Instructions Maintenance\n\nThe maintenance agent identified improvements based on test results from run #${{ parameters.buildId }}.\n\n**Improvement PR:** #$PR_ID\n\n$SUMMARY"
+                PAYLOAD=$(python3 -c "
+              import json, sys
+              body = sys.argv[1]
+              payload = {
+                'comments': [{'parentCommentId': 0, 'content': body, 'commentType': 1}],
+                'status': 'active'
+              }
+              print(json.dumps(payload))
+              " "$BODY")
+
+                THREADS_URL="${SYSTEM_TEAMFOUNDATIONCOLLECTIONURI}${SYSTEM_TEAMPROJECT}/_apis/git/repositories/${BUILD_REPOSITORY_NAME}/pullRequests/$PR_NUMBER/threads?api-version=7.1"
+                curl -s -X POST "$THREADS_URL" \
+                  -H "Authorization: Bearer $SYSTEM_ACCESSTOKEN" \
+                  -H "Content-Type: application/json" \
+                  -d "$PAYLOAD" || echo "Warning: could not post comment to triggering PR"
+              fi
+            displayName: 'Create or Update Maintenance PR'
+            continueOnError: true
+            env:
+              SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+              SYSTEM_TEAMFOUNDATIONCOLLECTIONURI: $(System.TeamFoundationCollectionUri)
+              SYSTEM_TEAMPROJECT: $(System.TeamProject)
+              BUILD_REPOSITORY_NAME: $(Build.Repository.Name)
+
+          - task: PublishPipelineArtifact@1
+            condition: always()
+            displayName: 'Upload Maintenance Summary'
+            inputs:
+              targetPath: maintenance-summary.md
+              artifact: maintenance-summary
+              publishLocation: pipeline

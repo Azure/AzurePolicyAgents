@@ -1,0 +1,853 @@
+# Azure DevOps Pipeline — Policy Agent Tests
+# Equivalent of .github/workflows/PolicyAgent.yml
+#
+# Prerequisites
+# ─────────────
+#   1. Azure Resource Manager service connection configured for workload identity
+#      federation. Default name: 'policy-agents' (override via the
+#      azureServiceConnection pipeline variable).
+#
+#   2. Variable group 'policy-agents-dev' linked to this pipeline containing:
+#        AGENT_ENDPOINT          Azure AI Foundry project endpoint (non-secret)
+#        DENY_AGENT_ID           Deny policy agent ID (non-secret)
+#        AUDIT_AGENT_ID          Audit policy agent ID (non-secret)
+#        DINE_AGENT_ID           DINE policy agent ID (non-secret)
+#        MODIFY_AGENT_ID         Modify policy agent ID (non-secret)
+#        INSTRUCTIONS_AGENT_ID   Instructions maintenance agent ID (optional)
+#
+#   3. For posting PR comments the build service identity must have
+#      'Contribute to pull requests' permission on the repository.
+
+trigger: none
+
+pr:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - policyDefinitions/*.json
+
+parameters:
+  - name: agent_types
+    displayName: 'Agent types to run (comma-separated: deny,audit,dine,modify)'
+    type: string
+    default: 'deny,audit,dine,modify'
+
+variables:
+  - group: policy-agents-dev
+  - name: azureServiceConnection
+    value: 'policy-agents'
+
+stages:
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Stage 1 — Validate policy JSON and group by effect type
+  # ─────────────────────────────────────────────────────────────────────────────
+  - stage: PolicyValidation
+    displayName: 'Policy Validation'
+    jobs:
+      - job: Validation
+        displayName: 'Validate and Group Policies'
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - checkout: self
+            fetchDepth: 0
+
+          - bash: |
+              set -e
+
+              if [ "$(Build.Reason)" = "PullRequest" ]; then
+                echo "PR build — getting changed files for PR $(System.PullRequest.PullRequestNumber)"
+                # Strip refs/heads/ prefix from target branch name
+                TARGET_BRANCH="$(System.PullRequest.TargetBranch)"
+                TARGET_BRANCH="${TARGET_BRANCH#refs/heads/}"
+                git fetch origin "$TARGET_BRANCH" 2>/dev/null || true
+                if git rev-parse --verify "origin/$TARGET_BRANCH" > /dev/null 2>&1; then
+                  BASE=$(git merge-base HEAD "origin/$TARGET_BRANCH" 2>/dev/null || git rev-parse "origin/$TARGET_BRANCH")
+                  CHANGED=$(git diff --name-only "$BASE" HEAD)
+                else
+                  echo "Warning: could not resolve target branch — falling back to HEAD~1"
+                  CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || true)
+                fi
+              else
+                # Manual dispatch processes every policy file in the repository.
+                # This matches the behaviour of the GitHub Actions workflow_dispatch trigger
+                # and is intentional: a manual run validates the full policy baseline.
+                echo "Manual build — processing all policy files"
+                CHANGED=$(find policyDefinitions -name "*.json" -type f 2>/dev/null || true)
+              fi
+
+              JSON_FILES=$(echo "$CHANGED" | grep '^policyDefinitions/.*\.json$' || true)
+              JSON_FILES_LIST=$(echo "$JSON_FILES" | tr '\n' ' ' | sed 's/[[:space:]]*$//')
+              JSON_FILES_COUNT=$(printf '%s\n' "$JSON_FILES" | grep -c '[^[:space:]]' || echo "0")
+
+              echo "Changed JSON files: $JSON_FILES_LIST"
+              echo "Count: $JSON_FILES_COUNT"
+              echo "##vso[task.setvariable variable=json_files;isOutput=true]$JSON_FILES_LIST"
+              echo "##vso[task.setvariable variable=json_files_count;isOutput=true]$JSON_FILES_COUNT"
+            name: getChangedFiles
+            displayName: 'Get Changed Policy Files'
+
+          - task: AzurePowerShell@5
+            name: validatePolicies
+            displayName: 'Validate Policies and Group by Effect'
+            inputs:
+              azureSubscription: $(azureServiceConnection)
+              ScriptType: InlineScript
+              Inline: |
+                ./scripts/validate-policies.ps1 `
+                  -JsonFiles "$(getChangedFiles.json_files)" `
+                  -JsonFilesCount "$(getChangedFiles.json_files_count)"
+              azurePowerShellVersion: LatestVersion
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Stage 2 — Run policy agents in parallel (deny, audit, dine, modify)
+  #           Each job is skipped when its effect has no changed policies.
+  #           fail-fast equivalent: ADO jobs within a stage do not cancel siblings
+  #           on failure by default.
+  # ─────────────────────────────────────────────────────────────────────────────
+  - stage: PolicyAgentTests
+    displayName: 'Policy Agent Tests'
+    dependsOn: PolicyValidation
+    condition: >
+      and(
+        succeeded(),
+        ne(stageDependencies.PolicyValidation.Validation.outputs['validatePolicies.processedFilesCount'], '0'),
+        ne(stageDependencies.PolicyValidation.Validation.outputs['validatePolicies.processedFilesCount'], '')
+      )
+    variables:
+      denyPoliciesBase64:   $[ stageDependencies.PolicyValidation.Validation.outputs['validatePolicies.denyPoliciesBase64'] ]
+      auditPoliciesBase64:  $[ stageDependencies.PolicyValidation.Validation.outputs['validatePolicies.auditPoliciesBase64'] ]
+      dinePoliciesBase64:   $[ stageDependencies.PolicyValidation.Validation.outputs['validatePolicies.dinePoliciesBase64'] ]
+      modifyPoliciesBase64: $[ stageDependencies.PolicyValidation.Validation.outputs['validatePolicies.modifyPoliciesBase64'] ]
+      denyPoliciesCount:    $[ stageDependencies.PolicyValidation.Validation.outputs['validatePolicies.denyPoliciesCount'] ]
+      auditPoliciesCount:   $[ stageDependencies.PolicyValidation.Validation.outputs['validatePolicies.auditPoliciesCount'] ]
+      dinePoliciesCount:    $[ stageDependencies.PolicyValidation.Validation.outputs['validatePolicies.dinePoliciesCount'] ]
+      modifyPoliciesCount:  $[ stageDependencies.PolicyValidation.Validation.outputs['validatePolicies.modifyPoliciesCount'] ]
+    jobs:
+
+      # ── Deny Agent ───────────────────────────────────────────────────────────
+      - job: DenyAgent
+        displayName: 'Deny Policy Agent'
+        timeoutInMinutes: 30
+        pool:
+          vmImage: ubuntu-latest
+        condition: >
+          and(
+            succeeded(),
+            ne(variables['denyPoliciesCount'], '0'),
+            ne(variables['denyPoliciesCount'], '')
+          )
+        steps:
+          - checkout: self
+
+          - bash: |
+              echo "📦 Decoding deny policies..."
+              echo "$(denyPoliciesBase64)" | base64 --decode > policies.json
+              cp policies.json allPolicyContents.json
+              cat policies.json
+            displayName: 'Decode Policy Content'
+
+          - task: AzurePowerShell@5
+            displayName: 'Test Deny Policies'
+            inputs:
+              azureSubscription: $(azureServiceConnection)
+              ScriptType: InlineScript
+              Inline: |
+                $WarningPreference = 'SilentlyContinue'
+                Write-Host "📦 Installing Metro.AI PowerShell Module..."
+                Install-PSResource -Name Metro.AI -TrustRepository -Scope CurrentUser
+
+                $endpoint = $env:AGENT_ENDPOINT
+                if ([string]::IsNullOrEmpty($endpoint)) {
+                  Write-Error "❌ AGENT_ENDPOINT not configured"; exit 1
+                }
+                $agentId = $env:DENY_AGENT_ID
+                if ([string]::IsNullOrEmpty($agentId)) {
+                  Write-Error "❌ DENY_AGENT_ID not configured"; exit 1
+                }
+
+                $jobId = "ado-$(Build.BuildId)-deny"
+                Write-Host "🏷️ Job identifier: $jobId"
+
+                & ./scripts/test-policies-cli.ps1 `
+                  -Endpoint $endpoint `
+                  -AssistantId $agentId `
+                  -AgentType "deny" `
+                  -JobId $jobId
+              azurePowerShellVersion: LatestVersion
+
+          - bash: |
+              mkdir -p "$(Build.ArtifactStagingDirectory)/test-results-deny"
+              cp "$(Agent.TempDirectory)/RESULT.md" "$(Build.ArtifactStagingDirectory)/test-results-deny/" 2>/dev/null || true
+              cp "$(Agent.TempDirectory)/DEBUG.md"  "$(Build.ArtifactStagingDirectory)/test-results-deny/" 2>/dev/null || true
+            condition: always()
+            displayName: 'Stage Deny Test Results'
+
+          - task: PublishPipelineArtifact@1
+            condition: always()
+            displayName: 'Upload Deny Test Results'
+            inputs:
+              targetPath: '$(Build.ArtifactStagingDirectory)/test-results-deny'
+              artifact: 'test-results-deny'
+              publishLocation: pipeline
+
+      # ── Audit Agent ──────────────────────────────────────────────────────────
+      - job: AuditAgent
+        displayName: 'Audit Policy Agent'
+        timeoutInMinutes: 30
+        pool:
+          vmImage: ubuntu-latest
+        condition: >
+          and(
+            succeeded(),
+            ne(variables['auditPoliciesCount'], '0'),
+            ne(variables['auditPoliciesCount'], '')
+          )
+        steps:
+          - checkout: self
+
+          - bash: |
+              echo "📦 Decoding audit policies..."
+              echo "$(auditPoliciesBase64)" | base64 --decode > policies.json
+              cp policies.json allPolicyContents.json
+              cat policies.json
+            displayName: 'Decode Policy Content'
+
+          - task: AzurePowerShell@5
+            displayName: 'Test Audit Policies'
+            inputs:
+              azureSubscription: $(azureServiceConnection)
+              ScriptType: InlineScript
+              Inline: |
+                $WarningPreference = 'SilentlyContinue'
+                Write-Host "📦 Installing Metro.AI PowerShell Module..."
+                Install-PSResource -Name Metro.AI -TrustRepository -Scope CurrentUser
+
+                $endpoint = $env:AGENT_ENDPOINT
+                if ([string]::IsNullOrEmpty($endpoint)) {
+                  Write-Error "❌ AGENT_ENDPOINT not configured"; exit 1
+                }
+                $agentId = $env:AUDIT_AGENT_ID
+                if ([string]::IsNullOrEmpty($agentId)) {
+                  Write-Error "❌ AUDIT_AGENT_ID not configured"; exit 1
+                }
+
+                $jobId = "ado-$(Build.BuildId)-audit"
+                Write-Host "🏷️ Job identifier: $jobId"
+
+                & ./scripts/test-policies-cli.ps1 `
+                  -Endpoint $endpoint `
+                  -AssistantId $agentId `
+                  -AgentType "audit" `
+                  -JobId $jobId
+              azurePowerShellVersion: LatestVersion
+
+          - bash: |
+              mkdir -p "$(Build.ArtifactStagingDirectory)/test-results-audit"
+              cp "$(Agent.TempDirectory)/RESULT.md" "$(Build.ArtifactStagingDirectory)/test-results-audit/" 2>/dev/null || true
+              cp "$(Agent.TempDirectory)/DEBUG.md"  "$(Build.ArtifactStagingDirectory)/test-results-audit/" 2>/dev/null || true
+            condition: always()
+            displayName: 'Stage Audit Test Results'
+
+          - task: PublishPipelineArtifact@1
+            condition: always()
+            displayName: 'Upload Audit Test Results'
+            inputs:
+              targetPath: '$(Build.ArtifactStagingDirectory)/test-results-audit'
+              artifact: 'test-results-audit'
+              publishLocation: pipeline
+
+      # ── DINE Agent ───────────────────────────────────────────────────────────
+      - job: DineAgent
+        displayName: 'DINE Policy Agent'
+        timeoutInMinutes: 30
+        pool:
+          vmImage: ubuntu-latest
+        condition: >
+          and(
+            succeeded(),
+            ne(variables['dinePoliciesCount'], '0'),
+            ne(variables['dinePoliciesCount'], '')
+          )
+        steps:
+          - checkout: self
+
+          - bash: |
+              echo "📦 Decoding DINE policies..."
+              echo "$(dinePoliciesBase64)" | base64 --decode > policies.json
+              cp policies.json allPolicyContents.json
+              cat policies.json
+            displayName: 'Decode Policy Content'
+
+          - task: AzurePowerShell@5
+            displayName: 'Test DINE Policies'
+            inputs:
+              azureSubscription: $(azureServiceConnection)
+              ScriptType: InlineScript
+              Inline: |
+                $WarningPreference = 'SilentlyContinue'
+                Write-Host "📦 Installing Metro.AI PowerShell Module..."
+                Install-PSResource -Name Metro.AI -TrustRepository -Scope CurrentUser
+
+                $endpoint = $env:AGENT_ENDPOINT
+                if ([string]::IsNullOrEmpty($endpoint)) {
+                  Write-Error "❌ AGENT_ENDPOINT not configured"; exit 1
+                }
+                $agentId = $env:DINE_AGENT_ID
+                if ([string]::IsNullOrEmpty($agentId)) {
+                  Write-Error "❌ DINE_AGENT_ID not configured"; exit 1
+                }
+
+                $jobId = "ado-$(Build.BuildId)-dine"
+                Write-Host "🏷️ Job identifier: $jobId"
+
+                & ./scripts/test-policies-cli.ps1 `
+                  -Endpoint $endpoint `
+                  -AssistantId $agentId `
+                  -AgentType "dine" `
+                  -JobId $jobId
+              azurePowerShellVersion: LatestVersion
+
+          - bash: |
+              mkdir -p "$(Build.ArtifactStagingDirectory)/test-results-dine"
+              cp "$(Agent.TempDirectory)/RESULT.md" "$(Build.ArtifactStagingDirectory)/test-results-dine/" 2>/dev/null || true
+              cp "$(Agent.TempDirectory)/DEBUG.md"  "$(Build.ArtifactStagingDirectory)/test-results-dine/" 2>/dev/null || true
+            condition: always()
+            displayName: 'Stage DINE Test Results'
+
+          - task: PublishPipelineArtifact@1
+            condition: always()
+            displayName: 'Upload DINE Test Results'
+            inputs:
+              targetPath: '$(Build.ArtifactStagingDirectory)/test-results-dine'
+              artifact: 'test-results-dine'
+              publishLocation: pipeline
+
+      # ── Modify Agent ─────────────────────────────────────────────────────────
+      - job: ModifyAgent
+        displayName: 'Modify Policy Agent'
+        timeoutInMinutes: 30
+        pool:
+          vmImage: ubuntu-latest
+        condition: >
+          and(
+            succeeded(),
+            ne(variables['modifyPoliciesCount'], '0'),
+            ne(variables['modifyPoliciesCount'], '')
+          )
+        steps:
+          - checkout: self
+
+          - bash: |
+              echo "📦 Decoding modify policies..."
+              echo "$(modifyPoliciesBase64)" | base64 --decode > policies.json
+              cp policies.json allPolicyContents.json
+              cat policies.json
+            displayName: 'Decode Policy Content'
+
+          - task: AzurePowerShell@5
+            displayName: 'Test Modify Policies'
+            inputs:
+              azureSubscription: $(azureServiceConnection)
+              ScriptType: InlineScript
+              Inline: |
+                $WarningPreference = 'SilentlyContinue'
+                Write-Host "📦 Installing Metro.AI PowerShell Module..."
+                Install-PSResource -Name Metro.AI -TrustRepository -Scope CurrentUser
+
+                $endpoint = $env:AGENT_ENDPOINT
+                if ([string]::IsNullOrEmpty($endpoint)) {
+                  Write-Error "❌ AGENT_ENDPOINT not configured"; exit 1
+                }
+                $agentId = $env:MODIFY_AGENT_ID
+                if ([string]::IsNullOrEmpty($agentId)) {
+                  Write-Error "❌ MODIFY_AGENT_ID not configured"; exit 1
+                }
+
+                $jobId = "ado-$(Build.BuildId)-modify"
+                Write-Host "🏷️ Job identifier: $jobId"
+
+                & ./scripts/test-policies-cli.ps1 `
+                  -Endpoint $endpoint `
+                  -AssistantId $agentId `
+                  -AgentType "modify" `
+                  -JobId $jobId
+              azurePowerShellVersion: LatestVersion
+
+          - bash: |
+              mkdir -p "$(Build.ArtifactStagingDirectory)/test-results-modify"
+              cp "$(Agent.TempDirectory)/RESULT.md" "$(Build.ArtifactStagingDirectory)/test-results-modify/" 2>/dev/null || true
+              cp "$(Agent.TempDirectory)/DEBUG.md"  "$(Build.ArtifactStagingDirectory)/test-results-modify/" 2>/dev/null || true
+            condition: always()
+            displayName: 'Stage Modify Test Results'
+
+          - task: PublishPipelineArtifact@1
+            condition: always()
+            displayName: 'Upload Modify Test Results'
+            inputs:
+              targetPath: '$(Build.ArtifactStagingDirectory)/test-results-modify'
+              artifact: 'test-results-modify'
+              publishLocation: pipeline
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Stage 3 — Combine results and post PR comment
+  # ─────────────────────────────────────────────────────────────────────────────
+  - stage: CommentResults
+    displayName: 'Comment Results'
+    dependsOn:
+      - PolicyValidation
+      - PolicyAgentTests
+    condition: always()
+    jobs:
+      - job: PostComment
+        displayName: 'Combine Results and Post PR Comment'
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - checkout: self
+
+          - task: DownloadPipelineArtifact@2
+            displayName: 'Download Test Result Artifacts'
+            continueOnError: true
+            inputs:
+              buildType: current
+              targetPath: results
+
+          - bash: |
+              echo "Checking for test results..."
+              ls -la results/ 2>/dev/null || echo "Results directory not found"
+
+              if [ -d results ] && [ "$(find results -name 'RESULT.md' -type f | wc -l)" -gt 0 ]; then
+                echo "Found test results, combining..."
+
+                echo "## 🎯 Azure Policy Test Results - Multi-Agent Analysis" > combined-results.md
+                echo "" >> combined-results.md
+                echo "Tested with specialized agents for each policy effect type" >> combined-results.md
+                echo "" >> combined-results.md
+                echo "---" >> combined-results.md
+                echo "" >> combined-results.md
+
+                for agent_dir in results/test-results-*/; do
+                  if [ -d "$agent_dir" ]; then
+                    echo "Processing results from: $agent_dir"
+                    result="${agent_dir}RESULT.md"
+                    if [ -f "$result" ]; then
+                      echo "Adding result file: $result"
+                      cat "$result" >> combined-results.md
+                      echo "" >> combined-results.md
+                      echo "---" >> combined-results.md
+                      echo "" >> combined-results.md
+                    fi
+                  fi
+                done
+
+                echo "Combined results preview:"
+                head -n 50 combined-results.md
+                echo "##vso[task.setvariable variable=results_found]true"
+              else
+                echo "No test results found"
+                echo "##vso[task.setvariable variable=results_found]false"
+              fi
+            name: combineResults
+            displayName: 'Combine Results'
+
+          - bash: |
+              # Post PR comment using the ADO Git Pull Request Threads REST API.
+              # Requires the build service identity to have 'Contribute to pull requests'
+              # permission on the repository (Project Settings > Repos > Security).
+              #
+              # For GitHub-hosted repositories: replace this step with
+              #   gh pr comment $(System.PullRequest.PullRequestNumber) \
+              #     --body-file combined-results.md
+              # and supply a GitHub PAT stored as a pipeline secret (GITHUB_TOKEN).
+
+              if [ "$(Build.Reason)" = "PullRequest" ] && [ -f combined-results.md ]; then
+                echo "Posting PR comment to PR $(System.PullRequest.PullRequestId)..."
+
+                COMMENT_BODY=$(cat combined-results.md)
+                PAYLOAD=$(python3 -c "
+              import json, sys
+              body = open('combined-results.md').read()
+              payload = {
+                'comments': [{'parentCommentId': 0, 'content': body, 'commentType': 1}],
+                'status': 'active'
+              }
+              print(json.dumps(payload))
+              ")
+
+                THREADS_URL="${SYSTEM_TEAMFOUNDATIONCOLLECTIONURI}${SYSTEM_TEAMPROJECT}/_apis/git/repositories/${BUILD_REPOSITORY_NAME}/pullRequests/${SYSTEM_PULLREQUEST_PULLREQUESTID}/threads?api-version=7.1"
+
+                HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+                  -X POST "$THREADS_URL" \
+                  -H "Authorization: Bearer $SYSTEM_ACCESSTOKEN" \
+                  -H "Content-Type: application/json" \
+                  -d "$PAYLOAD")
+
+                echo "HTTP status: $HTTP_STATUS"
+                if [ "$HTTP_STATUS" -ge 200 ] && [ "$HTTP_STATUS" -lt 300 ]; then
+                  echo "✅ PR comment posted successfully"
+                else
+                  echo "⚠️ PR comment post returned HTTP $HTTP_STATUS (non-fatal)"
+                fi
+              else
+                echo "Not a PR build or no results — skipping PR comment"
+              fi
+            displayName: 'Post PR Comment'
+            continueOnError: true
+            env:
+              SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+              SYSTEM_TEAMFOUNDATIONCOLLECTIONURI: $(System.TeamFoundationCollectionUri)
+              SYSTEM_TEAMPROJECT: $(System.TeamProject)
+              BUILD_REPOSITORY_NAME: $(Build.Repository.Name)
+              SYSTEM_PULLREQUEST_PULLREQUESTID: $(System.PullRequest.PullRequestId)
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Stage 4 — Instructions maintenance agent
+  #           Runs in parallel with FinalCleanup (both depend on CommentResults
+  #           but not on each other, mirroring the GitHub Actions architecture).
+  #           Skipped when not a PR build or INSTRUCTIONS_AGENT_ID is unset.
+  # ─────────────────────────────────────────────────────────────────────────────
+  - stage: InstructionsAgent
+    displayName: 'Instructions Maintenance'
+    dependsOn:
+      - PolicyValidation
+      - PolicyAgentTests
+      - CommentResults
+    condition: >
+      and(
+        eq(variables['Build.Reason'], 'PullRequest'),
+        ne(variables['INSTRUCTIONS_AGENT_ID'], ''),
+        eq(dependencies.PolicyValidation.result, 'Succeeded')
+      )
+    jobs:
+      - job: RunInstructionsAgent
+        displayName: 'Analyse Results and Update Instructions'
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - checkout: self
+            fetchDepth: 0
+
+          # Security: the maintenance agent reads agentInstructions/*.md and the
+          # prompt-building script as its own instructions. On a PR build, checkout
+          # self resolves to the PR branch, so a PR that edits instruction files could
+          # inject prompts into the agent. Reset the working tree to the trusted
+          # default branch before running the agent. Improvements are still proposed
+          # as a fresh maintenance PR, so ignoring the PR branch's copy loses nothing.
+          - bash: |
+              set -e
+              TARGET_BRANCH="$(System.PullRequest.TargetBranch)"
+              TARGET_BRANCH="${TARGET_BRANCH#refs/heads/}"
+              TARGET_BRANCH="${TARGET_BRANCH:-main}"
+              echo "Resetting working tree to origin/$TARGET_BRANCH to prevent prompt injection from the PR branch"
+              git fetch origin "$TARGET_BRANCH"
+              git checkout -B "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
+            displayName: 'Checkout instruction files from default branch (prevent prompt injection)'
+
+          - task: DownloadPipelineArtifact@2
+            displayName: 'Download Test Result Artifacts'
+            continueOnError: true
+            inputs:
+              buildType: current
+              targetPath: maintenance-results
+
+          - bash: |
+              # Retrieve build logs via the ADO Build Logs REST API and concatenate
+              # them into run-logs.txt as supplementary context for the maintenance
+              # agent. instructions-agent.ps1 degrades gracefully when this file is
+              # missing or empty.
+              echo "Fetching build logs for run $(Build.BuildId)..."
+              LOGS_URL="${SYSTEM_TEAMFOUNDATIONCOLLECTIONURI}${SYSTEM_TEAMPROJECT}/_apis/build/builds/$(Build.BuildId)/logs?api-version=7.1"
+              LOGS_JSON=$(curl -s -H "Authorization: Bearer $SYSTEM_ACCESSTOKEN" "$LOGS_URL" 2>/dev/null || echo '{"value":[]}')
+
+              LOG_COUNT=$(echo "$LOGS_JSON" | python3 -c "
+              import json, sys
+              d = json.load(sys.stdin)
+              print(d.get('count', len(d.get('value', []))))" 2>/dev/null || echo "0")
+              echo "Found $LOG_COUNT log entries"
+
+              > run-logs.txt
+              echo "$LOGS_JSON" | python3 - <<'PYEOF'
+              import json, sys, urllib.request, os
+              data = json.load(sys.stdin)
+              token = os.environ.get('SYSTEM_ACCESSTOKEN', '')
+              # Cap at 20 log entries to keep run-logs.txt within a reasonable size
+              # for the instructions-agent prompt window (~40 KB limit in the script).
+              # Individual log entries are concatenated, so 20 entries is typically
+              # sufficient to capture all relevant agent and test output.
+              for entry in data.get('value', [])[:20]:
+                  url = entry.get('url', '')
+                  if url:
+                      req = urllib.request.Request(url, headers={'Authorization': f'Bearer {token}'})
+                      try:
+                          with urllib.request.urlopen(req, timeout=10) as resp:
+                              sys.stdout.write(resp.read().decode('utf-8', errors='replace'))
+                              sys.stdout.write('\n')
+                      except Exception as e:
+                          sys.stdout.write(f'(log fetch error: {e})\n')
+              PYEOF
+              echo "Log captured: $(wc -l < run-logs.txt) lines"
+            displayName: 'Fetch Build Logs'
+            continueOnError: true
+            env:
+              SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+              SYSTEM_TEAMFOUNDATIONCOLLECTIONURI: $(System.TeamFoundationCollectionUri)
+              SYSTEM_TEAMPROJECT: $(System.TeamProject)
+
+          - task: AzurePowerShell@5
+            name: maintain
+            displayName: 'Analyse Results and Apply Instruction Improvements'
+            inputs:
+              azureSubscription: $(azureServiceConnection)
+              ScriptType: InlineScript
+              Inline: |
+                $WarningPreference = 'SilentlyContinue'
+                & ./scripts/instructions-agent.ps1 `
+                  -Endpoint $env:AGENT_ENDPOINT `
+                  -AssistantId $env:INSTRUCTIONS_AGENT_ID `
+                  -ArtifactsPath "./maintenance-results" `
+                  -AgentInstructionsPath "./agentInstructions" `
+                  -WorkflowLogPath "./run-logs.txt" `
+                  -RunId "$(Build.BuildId)"
+              azurePowerShellVersion: LatestVersion
+
+          - bash: |
+              set -e
+              CHANGES_MADE="$(maintain.changesMade)"
+              echo "changes-made output: $CHANGES_MADE"
+
+              if [ "$CHANGES_MADE" != "true" ]; then
+                echo "No instruction changes proposed — skipping branch creation"
+                exit 0
+              fi
+
+              # Derive a stable branch name from the triggering PR source branch
+              SOURCE_BRANCH="$(System.PullRequest.SourceBranch)"
+              SOURCE_BRANCH="${SOURCE_BRANCH#refs/heads/}"
+              SAFE_SOURCE=$(echo "$SOURCE_BRANCH" | sed 's/[^a-zA-Z0-9]/-/g' | sed 's/-\+/-/g' | sed 's/^-//;s/-$//')
+              BRANCH="chore/agent-instructions-${SAFE_SOURCE}"
+
+              TARGET_BRANCH="$(System.PullRequest.TargetBranch)"
+              TARGET_BRANCH="${TARGET_BRANCH#refs/heads/}"
+
+              git config user.name "Azure DevOps Pipeline"
+              git config user.email "ado-pipeline@noreply"
+              git add agentInstructions/*.md
+
+              if git diff --staged --quiet; then
+                echo "No staged changes — nothing to commit"
+                exit 0
+              fi
+
+              # Check for an existing open PR for this maintenance branch
+              EXISTING_PR=$(az repos pr list \
+                --repository "$(Build.Repository.Name)" \
+                --source-branch "$BRANCH" \
+                --target-branch "$TARGET_BRANCH" \
+                --status active \
+                --query "[0].pullRequestId" \
+                --output tsv 2>/dev/null || echo "")
+
+              if [ -n "$EXISTING_PR" ] && [ "$EXISTING_PR" != "None" ]; then
+                echo "Existing maintenance PR #$EXISTING_PR found"
+                git fetch origin "$BRANCH" 2>/dev/null || true
+                git checkout "$BRANCH" 2>/dev/null || git checkout -b "$BRANCH"
+                git reset --hard "origin/$BRANCH" 2>/dev/null || true
+                git add agentInstructions/*.md
+              else
+                git checkout -b "$BRANCH"
+                git add agentInstructions/*.md
+              fi
+
+              if git diff --staged --quiet; then
+                echo "No staged changes after checkout — nothing to commit"
+                exit 0
+              fi
+
+              git commit -m "chore: auto-improve agent instructions [run #$(Build.BuildId)]"
+              git push origin "$BRANCH"
+
+              if [ -n "$EXISTING_PR" ] && [ "$EXISTING_PR" != "None" ]; then
+                echo "Maintenance branch pushed; existing PR #$EXISTING_PR updated"
+                PR_ID="$EXISTING_PR"
+              else
+                PR_ID=$(az repos pr create \
+                  --repository "$(Build.Repository.Name)" \
+                  --source-branch "$BRANCH" \
+                  --target-branch "$TARGET_BRANCH" \
+                  --title "chore: auto-improve agent instructions ($SOURCE_BRANCH)" \
+                  --description "$(cat maintenance-summary.md 2>/dev/null || echo 'Auto-generated instruction improvements')" \
+                  --query "pullRequestId" \
+                  --output tsv 2>/dev/null || echo "")
+                echo "New maintenance PR created: #$PR_ID"
+              fi
+
+              # Post a comment on the triggering PR linking to the maintenance PR
+              if [ -n "$PR_ID" ] && [ "$PR_ID" != "None" ] && [ -n "$(System.PullRequest.PullRequestId)" ]; then
+                SUMMARY=$(tail -n +2 maintenance-summary.md 2>/dev/null || true)
+                BODY="## 🤖 Agent Instructions Maintenance\n\nThe maintenance agent identified improvements based on test results from this run.\n\n**Improvement PR:** #$PR_ID\n\n$SUMMARY"
+                PAYLOAD=$(python3 -c "
+              import json, sys
+              body = sys.argv[1]
+              payload = {
+                'comments': [{'parentCommentId': 0, 'content': body, 'commentType': 1}],
+                'status': 'active'
+              }
+              print(json.dumps(payload))
+              " "$BODY")
+
+                THREADS_URL="${SYSTEM_TEAMFOUNDATIONCOLLECTIONURI}${SYSTEM_TEAMPROJECT}/_apis/git/repositories/${BUILD_REPOSITORY_NAME}/pullRequests/${SYSTEM_PULLREQUEST_PULLREQUESTID}/threads?api-version=7.1"
+                curl -s -X POST "$THREADS_URL" \
+                  -H "Authorization: Bearer $SYSTEM_ACCESSTOKEN" \
+                  -H "Content-Type: application/json" \
+                  -d "$PAYLOAD" || echo "Warning: could not post comment to triggering PR"
+              fi
+            displayName: 'Create or Update Maintenance PR'
+            continueOnError: true
+            env:
+              SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+              SYSTEM_TEAMFOUNDATIONCOLLECTIONURI: $(System.TeamFoundationCollectionUri)
+              SYSTEM_TEAMPROJECT: $(System.TeamProject)
+              BUILD_REPOSITORY_NAME: $(Build.Repository.Name)
+              SYSTEM_PULLREQUEST_PULLREQUESTID: $(System.PullRequest.PullRequestId)
+
+          - task: PublishPipelineArtifact@1
+            condition: always()
+            displayName: 'Upload Maintenance Summary'
+            inputs:
+              targetPath: maintenance-summary.md
+              artifact: maintenance-summary
+              publishLocation: pipeline
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Stage 5 — Always-run cleanup
+  #           Does NOT depend on InstructionsAgent — both stages depend on
+  #           CommentResults and run in parallel, matching the GitHub Actions
+  #           architecture where FinalCleanup does not wait for InstructionsAgent.
+  # ─────────────────────────────────────────────────────────────────────────────
+  - stage: FinalCleanup
+    displayName: 'Final Cleanup'
+    dependsOn:
+      - PolicyValidation
+      - PolicyAgentTests
+      - CommentResults
+    condition: always()
+    jobs:
+      - job: Cleanup
+        displayName: 'Remove Azure Resources and Policy Definitions'
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - task: AzurePowerShell@5
+            displayName: 'Final Resource Cleanup'
+            inputs:
+              azureSubscription: $(azureServiceConnection)
+              ScriptType: InlineScript
+              Inline: |
+                $WarningPreference = 'SilentlyContinue'
+                $buildId = "$(Build.BuildId)"
+
+                Write-Host "🧹 Performing final cleanup for pipeline run: $buildId"
+                Write-Host "🎯 Target JobId pattern: ado-$buildId-* (covers all effect types)"
+
+                # JobId pattern used by ALL agent jobs in this run
+                $jobIdPattern = "ado-$buildId-"
+
+                # ── Resource groups ────────────────────────────────────────────
+                try {
+                  Write-Host "`n🔍 Searching for resource groups tagged with JobId pattern: ${jobIdPattern}*"
+                  $allResourceGroups = Get-AzResourceGroup -ErrorAction SilentlyContinue
+
+                  if ($allResourceGroups) {
+                    $resourceGroups = $allResourceGroups | Where-Object {
+                      if ($_ -and $_.Tags -and $_.Tags['JobId']) {
+                        $jobId = $_.Tags['JobId']
+                        $isMatch = $jobId.StartsWith($jobIdPattern)
+                        if ($isMatch) { Write-Host "  ✓ Match: $($_.ResourceGroupName) (JobId: $jobId)" }
+                        return $isMatch
+                      }
+                      return $false
+                    }
+
+                    if ($resourceGroups -and $resourceGroups.Count -gt 0) {
+                      Write-Host "`n🗑️ Found $($resourceGroups.Count) resource group(s) to clean up:"
+                      foreach ($rg in $resourceGroups) {
+                        Write-Host "  - $($rg.ResourceGroupName) (JobId: $($rg.Tags['JobId']))"
+                        try {
+                          Remove-AzResourceGroup -Name $rg.ResourceGroupName -Force -AsJob | Out-Null
+                          Write-Host "    ✅ Cleanup job started"
+                        }
+                        catch { Write-Warning "    ⚠️ Failed to start cleanup: $($_.Exception.Message)" }
+                      }
+                      Start-Sleep -Seconds 10
+                      $bgJobs = Get-Job -ErrorAction SilentlyContinue
+                      if ($bgJobs) { Write-Host "`n📊 $($bgJobs.Count) cleanup job(s) running in background" }
+                    } else {
+                      Write-Host "`n✅ No resource groups found with matching JobId pattern"
+                    }
+                  } else {
+                    Write-Host "`n✅ No resource groups found in subscription"
+                  }
+                }
+                catch { Write-Warning "`n⚠️ Error during resource group cleanup: $($_.Exception.Message)" }
+
+                # ── Policy definitions & assignments ──────────────────────────
+                try {
+                  Write-Host "`n🔍 Searching for policies with names matching: *${jobIdPattern}*"
+                  $policies = Get-AzPolicyDefinition -Custom -ErrorAction SilentlyContinue | Where-Object {
+                    if ($_) {
+                      $isMatch = $_.Name -like "*$jobIdPattern*"
+                      if ($isMatch) { Write-Host "  ✓ Policy match: $($_.Name)" }
+                      return $isMatch
+                    }
+                    return $false
+                  }
+
+                  if ($policies) {
+                    Write-Host "`n🗑️ Removing $($policies.Count) policy definition(s):"
+                    foreach ($policy in $policies) {
+                      Write-Host "  - $($policy.Name)"
+                      try {
+                        Remove-AzPolicyDefinition -Id $policy.PolicyDefinitionId -Force -ErrorAction SilentlyContinue
+                        Write-Host "    ✅ Removed"
+                      }
+                      catch { Write-Warning "    ⚠️ Failed to remove: $($_.Exception.Message)" }
+                    }
+                  } else {
+                    Write-Host "`n✅ No matching policy definitions found"
+                  }
+
+                  $assignments = Get-AzPolicyAssignment -ErrorAction SilentlyContinue | Where-Object {
+                    if ($_) {
+                      $isMatch = $_.Name -like "*$jobIdPattern*"
+                      if ($isMatch) { Write-Host "  ✓ Assignment match: $($_.Name)" }
+                      return $isMatch
+                    }
+                    return $false
+                  }
+
+                  if ($assignments) {
+                    Write-Host "`n🗑️ Removing $($assignments.Count) policy assignment(s):"
+                    foreach ($assignment in $assignments) {
+                      Write-Host "  - $($assignment.Name)"
+                      try {
+                        Remove-AzPolicyAssignment -Id $assignment.PolicyAssignmentId -ErrorAction SilentlyContinue
+                        Write-Host "    ✅ Removed"
+                      }
+                      catch { Write-Warning "    ⚠️ Failed to remove: $($_.Exception.Message)" }
+                    }
+                  } else {
+                    Write-Host "`n✅ No matching policy assignments found"
+                  }
+                }
+                catch { Write-Warning "`n⚠️ Policy cleanup encountered errors: $($_.Exception.Message)" }
+
+                Write-Host "`n🏁 Final cleanup completed for pipeline run: $buildId"
+                Write-Host "  - Cleaned up all resources with JobId starting with: $jobIdPattern"
+                Write-Host "  - Covers deny, audit, dine, and modify effect tests"
+                Write-Host "  - Other concurrent pipeline runs are unaffected"
+              azurePowerShellVersion: LatestVersion
+

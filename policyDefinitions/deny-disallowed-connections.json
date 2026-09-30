@@ -1,0 +1,62 @@
+{
+  "name": "deny-disallowed-connections",
+  "type": "Microsoft.Authorization/policyDefinitions",
+  "apiVersion": "2021-06-01",
+  "scope": null,
+  "properties": {
+    "displayName": "Only selected Foundry connection categories are allowed",
+    "policyType": "Custom",
+    "mode": "All",
+    "description": "This policy restricts AI Foundry project connections to only allow specific categories, ensuring that only approved connection types can be created within the organization.",
+    "metadata": {
+      "category": "AI + Machine Learning",
+      "version": "1.0.0",
+      "source": "https://github.com/microsoft-foundry/foundry-samples/tree/main/infrastructure/infrastructure-setup-bicep/05-custom-policy-definitions"
+    },
+    "parameters": {
+      "allowedCategories": {
+        "type": "Array",
+        "metadata": {
+          "displayName": "Allowed connection categories",
+          "description": "Categories allowed for Microsoft.CognitiveServices/accounts/connections and Microsoft.CognitiveServices/accounts/projects/connections"
+        },
+        "defaultValue": [
+          "BingLLMSearch"
+        ]
+      }
+    },
+    "policyRule": {
+      "if": {
+        "anyOf": [
+          {
+            "allOf": [
+              {
+                "field": "type",
+                "equals": "Microsoft.CognitiveServices/accounts/connections"
+              },
+              {
+                "field": "Microsoft.CognitiveServices/accounts/connections/category",
+                "notIn": "[parameters('allowedCategories')]"
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "field": "type",
+                "equals": "Microsoft.CognitiveServices/accounts/projects/connections"
+              },
+              {
+                "field": "Microsoft.CognitiveServices/accounts/projects/connections/category",
+                "notIn": "[parameters('allowedCategories')]"
+              }
+            ]
+          }
+        ]
+      },
+      "then": {
+        "effect": "deny"
+      }
+    }
+  }
+}

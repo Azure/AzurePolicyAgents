@@ -1,0 +1,49 @@
+{
+  "name": "Test-Deny-Key-Auth-Connections",
+  "type": "Microsoft.Authorization/policyDefinitions",
+  "apiVersion": "2021-06-01",
+  "scope": null,
+  "properties": {
+    "displayName": "Test - Deny - AI Foundry connections using API key-based authentication",
+    "policyType": "Custom",
+    "mode": "All",
+    "description": "Test policy that denies the creation of connections that use API key authentication",
+    "metadata": {
+      "category": "AI + Machine Learning"
+    },
+    "parameters": {},
+    "policyRule": {
+      "if": {
+        "anyOf": [
+          {
+            "allOf": [
+              {
+                "field": "type",
+                "equals": "Microsoft.CognitiveServices/accounts/projects/connections"
+              },
+              {
+                "field": "Microsoft.CognitiveServices/accounts/projects/connections/authType",
+                "equals": "ApiKey"
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "field": "type",
+                "equals": "Microsoft.CognitiveServices/accounts/connections"
+              },
+              {
+                "field": "Microsoft.CognitiveServices/accounts/connections/authType",
+                "equals": "ApiKey"
+              }
+            ]
+          }
+        ]
+      },
+      "then": {
+        "effect": "deny"
+      }
+    }
+  }
+}

@@ -1,0 +1,111 @@
+name: Update Agent Instructions
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "agentInstructions/**"
+      - ".github/workflows/update-agent-instructions.yml"
+  workflow_dispatch:
+    inputs:
+      agent_types:
+        description: 'Comma-separated list of agent types to update (deny,audit,deployIfNotExists,modify,instructionsAgent)'
+        required: true
+        default: 'deny,audit,deployIfNotExists,modify,instructionsAgent'
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  update-instructions:
+    environment:
+      name: 'dev'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          # Always deploy instruction files from the default branch so a manual
+          # workflow_dispatch against a feature branch cannot push tampered
+          # instructions to the live agents.
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Azure Login
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          enable-AzPSSession: true
+          
+      - name: Get Agent Endpoint
+        id: get-endpoint
+        uses: azure/powershell@f5b8adcfff1904872c7b98d4012d4914d74b1a82 # v3
+        with:
+          azPSVersion: latest
+          inlineScript: |
+            $endpoint = "${{ vars.AGENT_ENDPOINT }}"
+            
+            if ([string]::IsNullOrEmpty($endpoint)) {
+              Write-Error "AGENT_ENDPOINT repository variable is not set. Please configure it in repository settings."
+              exit 1
+            }
+            
+            echo "project-endpoint=$endpoint" >> $env:GITHUB_OUTPUT
+            Write-Host "Agent endpoint: $endpoint"
+          
+      - name: Update Agent Instructions
+        uses: azure/powershell@f5b8adcfff1904872c7b98d4012d4914d74b1a82 # v3
+        with:
+          azPSVersion: latest
+          inlineScript: |
+            $projectEndpoint = "${{ steps.get-endpoint.outputs.project-endpoint }}"
+            
+            # Handle agent types based on trigger type
+            if ("${{ github.event_name }}" -eq "push") {
+              # Auto-trigger: update all agents by default
+              $agentTypes = "deny,audit,deployIfNotExists,modify,instructionsAgent"
+              Write-Host "🔄 Auto-triggered by push - updating all agent types"
+            } else {
+              # Manual dispatch: use user input (with fallback to all)
+              $agentTypes = "${{ inputs.agent_types || 'deny,audit,deployIfNotExists,modify' }}"
+              Write-Host "👤 Manual trigger - using specified agent types"
+            }
+            
+            Write-Host "Updating agent instructions..."
+            Write-Host "Project Endpoint: $projectEndpoint"
+            Write-Host "Agent Types: $agentTypes"
+            
+            # Read model deployment name directly from the bicep param file in the repo
+            $paramFile = "./infra/bicep/agentsSetup.bicepparam"
+            $paramContent = Get-Content $paramFile -Raw
+            $modelName = if ($paramContent -match "param agentModelDeploymentName\s*=\s*'([^']+)'") {
+              $matches[1]
+            } else {
+              throw "Could not find agentModelDeploymentName in $paramFile — update the param file before running this workflow"
+            }
+            Write-Host "Model deployment name (from repo): $modelName"
+            
+            $scriptArgs = @{
+              ProjectEndpoint = $projectEndpoint
+              ModelDeploymentName = $modelName
+              AgentTypes = $agentTypes
+              UpdateExisting = $true
+            }
+            
+            Write-Host "Executing update script with parameters:"
+            $scriptArgs | ConvertTo-Json
+            
+            # Change to bicep directory for correct relative paths in script
+            Set-Location ./infra/bicep
+            
+            $output = & ../../scripts/deploySpecializedAgents.ps1 @scriptArgs
+            
+            Write-Host "`n=== Update Results ==="
+            $output
+            
+            Write-Host "`n✅ Agent instructions updated successfully!"

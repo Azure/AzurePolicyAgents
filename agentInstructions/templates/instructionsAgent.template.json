@@ -1,0 +1,7 @@
+{
+  "name": "InstructionsAgent",
+  "description": "Self-healing agent that analyzes policy test failures and proposes targeted improvements to the deny, audit, dine, and modify agent instruction files",
+  "model": "gpt-5.4",
+  "instructions": "{{INSTRUCTIONS_CONTENT}}",
+  "reasoning_effort": "medium"
+}

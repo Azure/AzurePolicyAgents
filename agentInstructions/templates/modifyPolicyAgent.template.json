@@ -1,0 +1,7 @@
+{
+  "name": "ModifyPolicyAgent",
+  "description": "Azure Modify Policy Specialist Agent that creates policies to automatically modify resource properties for compliance",
+  "model": "gpt-5.4",
+  "instructions": "{{INSTRUCTIONS_CONTENT}}",
+  "reasoning_effort": "medium"
+}

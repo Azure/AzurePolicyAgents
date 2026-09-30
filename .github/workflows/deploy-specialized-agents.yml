@@ -1,0 +1,182 @@
+name: Deploy Specialized Policy Agents
+# Workflow to deploy the four specialized policy agents in a single Azure AI Foundry
+
+on:
+  workflow_dispatch:
+    inputs:
+      agent_types:
+        description: 'Comma-separated list of agent types to deploy (deny,audit,deployIfNotExists,modify,instructionsAgent)'
+        required: false
+        default: 'deny,audit,deployIfNotExists,modify,instructionsAgent'
+        type: string
+      deployment_location:
+        description: 'Azure region to deploy to (e.g. eastus, westeurope, australiaeast) — must have your model available with capacity'
+        required: true
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy-infrastructure:
+    environment:
+      name: 'dev'
+    runs-on: ubuntu-latest
+    outputs:
+      agent-endpoint: ${{ steps.deploy-bicep.outputs.agentEndpoint }}
+      resource-group-name: ${{ steps.deploy-bicep.outputs.resourceGroupName }}
+      ai-hub-name: ${{ steps.deploy-bicep.outputs.aiHubName }}
+      ai-project-name: ${{ steps.deploy-bicep.outputs.aiProjectName }}
+      
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        
+      - name: Azure Login
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          enable-AzPSSession: true
+          
+      - name: Deploy Single Foundry Infrastructure
+        id: deploy-bicep
+        uses: azure/arm-deploy@a1361c2c2cd398621955b16ca32e01c65ea340f5 # v2
+        with:
+          scope: subscription
+          subscriptionId: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          region: ${{ inputs.deployment_location }}
+          template: ./infra/bicep/agentsSetup.bicep
+          parameters: ./infra/bicep/agentsSetup.bicepparam location=${{ inputs.deployment_location }}
+          
+      - name: Output Single Foundry Details
+        run: |
+          echo "🎯 Single Azure AI Foundry Deployed for All Specialized Agents"
+          echo "Agent Endpoint: ${{ steps.deploy-bicep.outputs.agentEndpoint }}"
+          echo "AI Hub Name: ${{ steps.deploy-bicep.outputs.aiHubName }}"
+          echo "AI Project Name: ${{ steps.deploy-bicep.outputs.aiProjectName }}"
+          echo "Resource Group: ${{ steps.deploy-bicep.outputs.resourceGroupName }}"
+
+  deploy-agents:
+    environment:
+      name: 'dev'
+    runs-on: ubuntu-latest
+    needs: deploy-infrastructure
+    outputs:
+      deny-agent-id: ${{ steps.deploy-specialized-agents.outputs.deny-agent-id }}
+      audit-agent-id: ${{ steps.deploy-specialized-agents.outputs.audit-agent-id }}
+      dine-agent-id: ${{ steps.deploy-specialized-agents.outputs.dine-agent-id }}
+      modify-agent-id: ${{ steps.deploy-specialized-agents.outputs.modify-agent-id }}
+      instructions-agent-id: ${{ steps.deploy-specialized-agents.outputs.instructions-agent-id }}
+      
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        
+      - name: Azure Login
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          enable-AzPSSession: true
+          
+      - name: Deploy 4 Specialized Agents in Single Foundry
+        id: deploy-specialized-agents
+        shell: pwsh
+        working-directory: ./infra/bicep
+        run: |
+          # Install required PowerShell modules
+          Install-Module -Name Az.Accounts -Force -AllowClobber
+          
+          # Deploy all 5 specialized agents to the single foundry project
+          $agentTypes = "${{ inputs.agent_types || 'deny,audit,deployIfNotExists,modify,instructionsAgent' }}"
+          # Use the single agent endpoint for all agents
+          $projectEndpoint = "${{ needs.deploy-infrastructure.outputs.agent-endpoint }}"
+
+          # Read model deployment name directly from the bicep param file in the repo
+          # working-directory is ./infra/bicep so the param file is at ./agentsSetup.bicepparam
+          $paramContent = Get-Content ./agentsSetup.bicepparam -Raw
+          $modelName = if ($paramContent -match "param agentModelDeploymentName\s*=\s*'([^']+)'") {
+            $matches[1]
+          } else {
+            throw "Could not find agentModelDeploymentName in agentsSetup.bicepparam — update the param file before running this workflow"
+          }
+          Write-Host "Model deployment name (from repo): $modelName"
+          
+          $scriptArgs = @{
+            ProjectEndpoint = $projectEndpoint
+            ModelDeploymentName = $modelName
+            AgentTypes = $agentTypes
+            UpdateExisting = $true
+          }
+          
+          Write-Host "🚀 Deploying 5 specialized policy agents to single foundry with parameters:"
+          $scriptArgs | ConvertTo-Json
+          
+          # Execute the deployment script and capture output
+          $output = & ../../scripts/deploySpecializedAgents.ps1 @scriptArgs
+          
+          # Parse output for GitHub Actions
+          $output | ForEach-Object {
+            if ($_ -match "^DENY_AGENT_ID=(.+)$") {
+              echo "deny-agent-id=$($matches[1])" >> $env:GITHUB_OUTPUT
+            }
+            elseif ($_ -match "^AUDIT_AGENT_ID=(.+)$") {
+              echo "audit-agent-id=$($matches[1])" >> $env:GITHUB_OUTPUT
+            }
+            elseif ($_ -match "^DINE_AGENT_ID=(.+)$") {
+              echo "dine-agent-id=$($matches[1])" >> $env:GITHUB_OUTPUT
+            }
+            elseif ($_ -match "^MODIFY_AGENT_ID=(.+)$") {
+              echo "modify-agent-id=$($matches[1])" >> $env:GITHUB_OUTPUT
+            }
+            elseif ($_ -match "^INSTRUCTIONS_AGENT_ID=(.+)$") {
+              echo "instructions-agent-id=$($matches[1])" >> $env:GITHUB_OUTPUT
+            }
+          }
+          
+  validate-deployment:
+    runs-on: ubuntu-latest
+    needs: [deploy-infrastructure, deploy-agents]
+    if: always() && needs.deploy-agents.result == 'success'
+    
+    steps:
+      - name: Validate Single Foundry with 5 Specialized Agents
+        run: |
+          echo "✅ Single Azure AI Foundry Deployment with 5 Specialized Agents"
+          echo "=================================="
+          
+          echo "🏢 Infrastructure:"
+          echo "  • Single Foundry Endpoint: ${{ needs.deploy-infrastructure.outputs.agent-endpoint }}"
+          echo "  • AI Hub: ${{ needs.deploy-infrastructure.outputs.ai-hub-name }}"
+          echo "  • AI Project: ${{ needs.deploy-infrastructure.outputs.ai-project-name }}"
+          
+          echo ""
+          echo "🤖 Deployed Specialized Agent IDs (in single foundry):"
+          echo "  • Deny Agent ID: ${{ needs.deploy-agents.outputs.deny-agent-id }}"
+          echo "  • Audit Agent ID: ${{ needs.deploy-agents.outputs.audit-agent-id }}"
+          echo "  • DINE Agent ID: ${{ needs.deploy-agents.outputs.dine-agent-id }}"
+          echo "  • Modify Agent ID: ${{ needs.deploy-agents.outputs.modify-agent-id }}"
+          echo "  • Instructions Agent ID: ${{ needs.deploy-agents.outputs.instructions-agent-id }}"
+          
+          echo ""
+          echo "🚀 All 5 specialized policy agents deployed successfully in single foundry!"
+          echo "Each agent uses the same endpoint but has specialized instructions:"
+          echo "  • Deny: Preventive policies that block non-compliant deployments"
+          echo "  • Audit: Monitoring policies that track compliance without blocking"
+          echo "  • DINE: Automatic deployment of compliant resources"
+          echo "  • Modify: Automatic property modification for compliance"
+          
+          echo ""
+          echo "📝 Next Steps:"
+          echo "  1. Set GitHub repository variable: AGENT_ENDPOINT=${{ needs.deploy-infrastructure.outputs.agent-endpoint }}"
+          echo "  2. Set GitHub repository variables for each agent ID:"
+          echo "     DENY_AGENT_ID=${{ needs.deploy-agents.outputs.deny-agent-id }}"
+          echo "     AUDIT_AGENT_ID=${{ needs.deploy-agents.outputs.audit-agent-id }}"
+          echo "     DINE_AGENT_ID=${{ needs.deploy-agents.outputs.dine-agent-id }}"
+          echo "     MODIFY_AGENT_ID=${{ needs.deploy-agents.outputs.modify-agent-id }}"
+          echo "     INSTRUCTIONS_AGENT_ID=${{ needs.deploy-agents.outputs.instructions-agent-id }}"
+          echo "  3. Test policies using PolicyAgent.yml workflow"
