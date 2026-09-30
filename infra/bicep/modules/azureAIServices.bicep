@@ -72,6 +72,17 @@ resource aiDeployment 'Microsoft.CognitiveServices/accounts/deployments@2025-06-
   }
 }
 
+resource accountCapabilityHost 'Microsoft.CognitiveServices/accounts/capabilityHosts@2025-06-01' = {
+   name: '${resourceName}-accountCapabilityHost'
+   parent: aiServices
+   properties: {
+     capabilityHostKind: 'Agents'
+   }
+   dependsOn: [
+     aiDeployment
+   ]
+}
+
 resource project 'Microsoft.CognitiveServices/accounts/projects@2025-06-01' = {
   name: '${resourceName}-project'
   parent: aiServices
@@ -83,14 +94,9 @@ resource project 'Microsoft.CognitiveServices/accounts/projects@2025-06-01' = {
     description: '${resourceName} AI Project'
     displayName: '${resourceName} AI Project'
   }
-}
-
-resource accountCapabilityHost 'Microsoft.CognitiveServices/accounts/capabilityHosts@2025-06-01' = {
-   name: '${resourceName}-accountCapabilityHost'
-   parent: aiServices
-   properties: {
-     capabilityHostKind: 'Agents'
-   }
+  dependsOn: [
+    accountCapabilityHost
+  ]
 }
 
 resource projectCapabilityHost 'Microsoft.CognitiveServices/accounts/projects/capabilityHosts@2025-06-01' = {
@@ -119,6 +125,9 @@ resource groundingWithBingConnection 'Microsoft.CognitiveServices/accounts/conne
       ResourceId: bingGroundingResourceId
     }
   }
+  dependsOn: [
+    project
+  ]
 }
 
 resource appInsightsConnection 'Microsoft.CognitiveServices/accounts/connections@2025-06-01' = if (!empty(appInsightsId) && !empty(appInsightsConnectionString)) {
@@ -138,6 +147,10 @@ resource appInsightsConnection 'Microsoft.CognitiveServices/accounts/connections
       ResourceId: appInsightsId
     }
   }
+  dependsOn: [
+    project
+    groundingWithBingConnection
+  ]
 }
 
 resource roleAssignmentLoop 'Microsoft.Authorization/roleAssignments@2022-04-01' = [

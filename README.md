@@ -126,7 +126,7 @@ AzurePolicyAgents/
 4. **Add your policy definitions** to the `policyDefinitions/` folder
 5. **Create pull requests** to automatically test your policies
 
-**Prerequisites**: Azure subscription with Owner permissions, Azure CLI or PowerShell
+**Prerequisites**: Azure subscription with least privileged permissions, Azure CLI or PowerShell
 
 📖 **[Complete Setup Guide](docs/Getting-Started.md)** - Step-by-step instructions with commands and screenshots
 
@@ -328,7 +328,7 @@ For complete configuration instructions, see the [Getting Started Guide](docs/Ge
 - **Exponential Backoff**: retry logic with jitter prevents API throttling
 - **Extended Timeouts**: 30-minute workflow timeout supports large policy batches
 
-**Benchmarks (from recent runs)**:
+**Benchmarks (from past measured runs)**:
 - Total pipeline time is gated by the slowest policy in each 10-job concurrency wave, not by the raw policy count
 - Batch of 4 policies (one per effect): ~25 minutes total, bound by the DINE job (~20 minutes)
 - Batch of 18 policies (10 concurrent plus a queued remainder): ~23 minutes total

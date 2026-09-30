@@ -30,7 +30,6 @@ param agentModelCapacity int = 500
 @allowed([
   'none'
   'groundingWithBing'
-  'aiSearch'
 ])
 param addKnowledge string = 'none'
 
@@ -50,11 +49,15 @@ param githubRepo string
 @description('GitHub Actions environment name used for federated credential subject (e.g. dev)')
 param githubEnvironment string
 
+@description('Tags applied to the resource group')
+param tags object = {}
+
 module rg 'br/public:avm/res/resources/resource-group:0.4.1' = {
   name: 'rg-${location}'
   params: {
     name: rgName
     location: location
+    tags: tags
   }
 }
 

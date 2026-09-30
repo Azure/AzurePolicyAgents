@@ -12,7 +12,7 @@ param agentModelDeploymentName = 'gpt-5.4' // Model deployment
 param agentModelSkuName = 'GlobalStandard' // Model SKU name
 
 // Additional param for agent tooling
-param addKnowledge = 'aiSearch' // Add knowledge to the AI Agents - 'none', 'groundingWithBing', or 'aiSearch'
+param addKnowledge = 'none' // Add knowledge to the AI Agents - 'none' or 'groundingWithBing'
 
 // Set to 'ServicePrincipal' when deploying via CI/CD pipeline, 'User' for interactive deployments
 param deployerPrincipalType = 'ServicePrincipal'
@@ -21,5 +21,11 @@ param deployerPrincipalType = 'ServicePrincipal'
 param githubOrg = 'replace-with-org-name'
 param githubRepo = 'replace-with-repo-name'
 param githubEnvironment = 'dev'
+
+// Tags applied to the resource group for cost attribution
+param tags = {
+  environment: 'dev'
+  workload: 'PolicyAgents'
+}
 
 // Single foundry configuration - all four specialized agents deployed in one project

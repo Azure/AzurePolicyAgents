@@ -105,6 +105,16 @@ param(
 Write-Host "Installing Metro.AI PowerShell module..." -ForegroundColor Cyan
 Install-Module -Name Metro.AI -Force -AllowClobber
 
+# Metro.AI authenticates with the Az PowerShell context (Get-AzAccessToken). If that context is
+# missing or points at a different tenant/subscription than the Foundry endpoint, Set-MetroAIContext
+# fails with a misleading HTTP 404. Surface the active context so mismatches are obvious.
+$azContext = Get-AzContext
+if (-not $azContext) {
+    throw "No Az PowerShell context found. Run Connect-AzAccount (and Set-AzContext) against the target tenant/subscription before running this script."
+}
+Write-Host "Az context: subscription '$($azContext.Subscription.Name)' ($($azContext.Subscription.Id)), tenant $($azContext.Tenant.Id)" -ForegroundColor Cyan
+Write-Host "Ensure this tenant matches the Foundry endpoint '$ProjectEndpoint'. A mismatch surfaces as HTTP 404 from Set-MetroAIContext." -ForegroundColor Yellow
+
 Write-Host "Setting Metro.AI context..." -ForegroundColor Cyan
 Set-MetroAIContext -Endpoint $ProjectEndpoint -ApiType Agent
 

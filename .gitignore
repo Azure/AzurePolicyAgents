@@ -499,3 +499,6 @@ static
 
 local.settings.json
 prereqs.tfvars
+
+# Generated policy agent instruction files (built at runtime by the instruction build step)
+agentInstructions/*PolicyAgentInstructions.json

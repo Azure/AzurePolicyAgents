@@ -444,8 +444,11 @@ jobs:
     # evidence lands with the same PR that changed the policy. Only runs for same-repo PRs
     # (GITHUB_TOKEN cannot push to a fork head branch). Commits touch docs/test-evidence only,
     # so the path filter on this workflow prevents a re-trigger loop.
+    # always() lets this run when some PolicyAgent matrix legs fail, so evidence for the
+    # policies that passed is still recorded and they are not needlessly retested next run.
     runs-on: ubuntu-latest
     if: >-
+      always() &&
       github.event_name == 'pull_request' &&
       needs.PolicyValidation.result == 'success' &&
       github.event.pull_request.head.repo.full_name == github.repository
@@ -490,7 +493,13 @@ jobs:
   InstructionsAgent:
     # Only call when INSTRUCTIONS_AGENT_ID is configured and this is a pull request.
     # workflow_call runs asynchronously — it does not block FinalCleanup.
-    if: github.event_name == 'pull_request' && vars.INSTRUCTIONS_AGENT_ID != '' && needs.PolicyValidation.result == 'success'
+    # always() lets this run when some PolicyAgent matrix legs fail; the maintenance agent
+    # learns from the full result set, including failures, so it must not be gated on every leg passing.
+    if: >-
+      always() &&
+      github.event_name == 'pull_request' &&
+      vars.INSTRUCTIONS_AGENT_ID != '' &&
+      needs.PolicyValidation.result == 'success'
     needs: [PolicyValidation, PolicyAgent, CommentResults]
     uses: ./.github/workflows/instructions-agent.yml
     with:
